@@ -279,12 +279,13 @@ async function nextTracks(n, exclude = [], mood = '') {
 }
 
 /* ---------- yt-dlp ---------- */
+const COOKIES_FILE = path.join(DATA, 'cookies.txt');   // sem se ukládají cookies vložené v nastavení aplikace
 // Společné argumenty yt-dlp: cookies (YTDLP_COOKIES), JavaScript runtime pro YouTube (node, který už běží) a vlastní argumenty (YTDLP_ARGS)
 let baseArgsP;
 function baseArgs() {
   return (baseArgsP ||= (async () => {
     const a = [];
-    const cookies = process.env.YTDLP_COOKIES;
+    const cookies = process.env.YTDLP_COOKIES || (fs.existsSync(COOKIES_FILE) ? COOKIES_FILE : '');
     if (cookies) { if (fs.existsSync(cookies)) a.push('--cookies', cookies); else console.warn('[yt-dlp] YTDLP_COOKIES ukazuje na neexistující soubor:', cookies); }
     const help = await new Promise((r) => execFile(YTDLP, ['--help'], { maxBuffer: 5e6 }, (_e, out) => r(String(out || ''))));
     if (/--js-runtimes/.test(help)) {   // novější yt-dlp potřebuje JS runtime k vyřešení výzvy YouTube
@@ -635,7 +636,7 @@ const send = (res, code, data) => {
   res.end(JSON.stringify(data));
 };
 const readBody = (req) => new Promise((resolve) => {
-  let b = ''; req.on('data', (c) => { b += c; if (b.length > 1e5) req.destroy(); });
+  let b = ''; req.on('data', (c) => { b += c; if (b.length > 1e6) req.destroy(); });
   req.on('end', () => { try { resolve(JSON.parse(b || '{}')); } catch { resolve({}); } });
 });
 
@@ -717,7 +718,7 @@ async function handle(req, res) {
   if (p === '/api/state') {
     const c = cfg();
     const d = djCfg();
-    return send(res, 200, { version: VERSION, configured: !!c.username, username: c.username, hasToken: !!c.token,
+    return send(res, 200, { version: VERSION, hasCookies: !!process.env.YTDLP_COOKIES || fs.existsSync(COOKIES_FILE), configured: !!c.username, username: c.username, hasToken: !!c.token,
       dj: { enabled: d.enabled, hasKey: !!d.key, lang: d.lang, voice: d.voice, freq: djFreq(d.freq), model: d.model, news: d.news, weather: d.weather, city: settings.get().location?.name || '' } });
   }
   if (p === '/api/settings' && req.method === 'POST') {
@@ -737,6 +738,14 @@ async function handle(req, res) {
       if (typeof b.dj.news === 'boolean') d.news = b.dj.news;
       if (typeof b.dj.weather === 'boolean') d.weather = b.dj.weather;
     }
+    let cookiesError;
+    if (typeof b.youtubeCookies === 'string' && b.youtubeCookies.trim()) {
+      const txt = b.youtubeCookies.replace(/\r\n?/g, '\n').trim() + '\n';
+      const rows = txt.split('\n').filter((l) => l && !l.startsWith('# ') && l.split('\t').length >= 7);
+      if (!rows.length || !rows.some((l) => /youtube\.com|google\.com/.test(l))) cookiesError = 'Cookies nejsou ve formátu Netscape (cookies.txt) nebo neobsahují youtube.com';
+      else { fs.writeFileSync(COOKIES_FILE, /^# (Netscape|HTTP Cookie)/.test(txt) ? txt : `# Netscape HTTP Cookie File\n${txt}`, { mode: 0o600 }); baseArgsP = null; blockedUntil = 0; }
+    }
+    if (b.clearYoutubeCookies) { try { fs.unlinkSync(COOKIES_FILE); } catch {} baseArgsP = null; }
     let cityError;
     if (typeof b.city === 'string') {
       const name = b.city.trim();
@@ -747,7 +756,7 @@ async function handle(req, res) {
       }
     }
     settings.save(); cache.clear();
-    return send(res, 200, { ok: true, cityError });
+    return send(res, 200, { ok: true, cityError, cookiesError });
   }
   if (p === '/api/next') {
     if (!cfg().username) return send(res, 400, { error: 'setup' });

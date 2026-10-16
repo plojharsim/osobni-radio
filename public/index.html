@@ -106,6 +106,13 @@
       <input id="fToken" type="password" autocomplete="off" placeholder="nechat prázdné = beze změny">
     </label>
     <p class="hint">Token je potřeba pro objevování podobných interpretů; navíc se s ním poslechy odesílají zpět do ListenBrainz a „líbí / nelíbí“ se tam synchronizuje. Najdeš ho v <a href="https://listenbrainz.org/settings/" target="_blank" rel="noopener">nastavení účtu</a>.</p>
+    <h3>Hudba z YouTube</h3>
+    <p class="hint">Když YouTube na serveru hlásí „ověřte, že nejste robot“, vlož sem cookies z přihlášeného prohlížeče (formát cookies.txt, jen pro youtube.com; doporučuju samostatný Google účet). <a href="https://github.com/plojharsim/osobni-radio#hudba-se-nep%C5%99ehr%C3%A1v%C3%A1" target="_blank" rel="noopener">Postup</a>.</p>
+    <label>Cookies pro YouTube <span class="opt" id="ckState"></span>
+      <textarea id="ytCookies" rows="4" spellcheck="false" autocomplete="off" placeholder="# Netscape HTTP Cookie File&#10;.youtube.com&#9;TRUE&#9;/&#9;TRUE&#9;…"></textarea>
+    </label>
+    <button type="button" id="ckClear" class="testbtn" hidden>Smazat uložené cookies</button>
+
     <h3>AI moderátor</h3>
     <p class="hint">Mezi skladbami občas zazní hláška jako v pravém rádiu. Text píše AI přes <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">OpenRouter</a> (zdarma dostupný model), mluví neurální hlas.</p>
     <label class="check"><input type="checkbox" id="djOn"> Zapnout moderátora</label>

@@ -133,8 +133,8 @@ dialog::backdrop { background: rgba(0,0,0,.6); backdrop-filter: blur(4px); }
 dialog h2 { font-size: 18px; margin-bottom: 8px; }
 dialog h3 { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--line); }
 dialog label { display: block; font-size: var(--fs-sm); color: var(--dim); margin-top: 16px; }
-dialog input:not([type=checkbox]), dialog select { display: block; width: 100%; margin-top: 6px; padding: 11px 12px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--bg); color: var(--fg); font: inherit; font-size: var(--fs-md); }
-dialog input:focus, dialog select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+dialog input:not([type=checkbox]), dialog select, dialog textarea { display: block; width: 100%; margin-top: 6px; padding: 11px 12px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--bg); color: var(--fg); font: inherit; font-size: var(--fs-md); }
+dialog input:focus, dialog select:focus, dialog textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 dialog label.check { display: flex; align-items: center; gap: 10px; color: var(--fg); font-size: var(--fs-md); }
 dialog label.check input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -238,8 +238,10 @@ body.idle { cursor: none; }
   .upnext { margin-top: 28px; }
   .upnext li button { padding: 14px 6px; }
   dialog { width: calc(100vw - 24px); max-height: calc(100dvh - 24px); padding: 20px; border-radius: var(--r-lg); }
-  dialog input:not([type=checkbox]), dialog select { font-size: 16px; }   /* iOS jinak při zaostření přiblíží stránku */
+  dialog input:not([type=checkbox]), dialog select, dialog textarea { font-size: 16px; }   /* iOS jinak při zaostření přiblíží stránku */
   .grid2 { grid-template-columns: 1fr; gap: 0; }
   .row button { padding: 12px 18px; }
 }
 @media (max-width: 360px) { .brand small { display: none; } }
+
+dialog textarea { resize: vertical; font-family: var(--mono); font-size: 12px !important; min-height: 80px; }

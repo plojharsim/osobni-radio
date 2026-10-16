@@ -462,6 +462,7 @@ async function openSettings() {
   $('fUser').value = s.username; $('fToken').value = '';
   $('fToken').placeholder = s.hasToken ? 'uloženo (prázdné = beze změny)' : 'volitelné';
   $('ver').textContent = `Osobní rádio, verze ${s.version}`;
+  $('ytCookies').value = ''; $('ckState').textContent = s.hasCookies ? '(uloženo)' : ''; $('ckClear').hidden = !s.hasCookies;
   const d = s.dj; state.dj.cfg = d;
   $('djOn').checked = d.enabled; $('djKey').value = '';
   $('djKey').placeholder = d.hasKey ? 'uloženo (prázdné = beze změny)' : 'sk-or-…';
@@ -473,6 +474,7 @@ async function openSettings() {
 }
 $('settingsBtn').onclick = openSettings;
 $('cancel').onclick = () => dlg.close();
+$('ckClear').onclick = async () => { await api('/api/settings', { clearYoutubeCookies: true }); $('ckState').textContent = ''; $('ckClear').hidden = true; };
 let testAudio;
 $('djTest').onclick = async () => {
   const b = $('djTest'); b.textContent = '… generuji';
@@ -487,12 +489,12 @@ $('djTest').onclick = async () => {
 $('form').addEventListener('submit', async () => {
   const prevUser = state.username;
   const saved = await api('/api/settings', {
-    username: $('fUser').value, token: $('fToken').value, openrouterKey: $('djKey').value, city: $('djCity').value,
+    username: $('fUser').value, token: $('fToken').value, openrouterKey: $('djKey').value, city: $('djCity').value, youtubeCookies: $('ytCookies').value,
     dj: { enabled: $('djOn').checked, lang: $('djLang').value, freq: $('djFreq').value, voice: $('djVoice').value, news: $('djNews').checked, weather: $('djWeather').checked },
   });
   const st = await api('/api/state'); state.dj.cfg = st.dj; clearDjDecisions(); scheduleDj(); updateDjInfo();
-  if (st.username === prevUser && state.started) { message(saved.cityError || ''); return; }   // změna jen nastavení moderátora → hudbu nepřerušuj
-  state.queue = []; message(saved.cityError || '');
+  if (st.username === prevUser && state.started) { message(saved.cityError || saved.cookiesError || ''); return; }   // změna jen nastavení moderátora → hudbu nepřerušuj
+  state.queue = []; message(saved.cityError || saved.cookiesError || '');
   if (state.started) playNext(true); else init();
 });
 
