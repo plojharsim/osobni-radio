@@ -285,6 +285,7 @@ let baseArgsP;
 function baseArgs() {
   return (baseArgsP ||= (async () => {
     const a = [];
+    if (process.env.YTDLP_IPV4 !== '0') a.push('--force-ipv4');   // YouTube blokuje IPv6 adresy přísněji; přes IPv4 bot kontrola často zmizí
     const cookies = process.env.YTDLP_COOKIES || (fs.existsSync(COOKIES_FILE) ? COOKIES_FILE : '');
     if (cookies) { if (fs.existsSync(cookies)) a.push('--cookies', cookies); else console.warn('[yt-dlp] YTDLP_COOKIES ukazuje na neexistující soubor:', cookies); }
     const help = await new Promise((r) => execFile(YTDLP, ['--help'], { maxBuffer: 5e6 }, (_e, out) => r(String(out || ''))));
