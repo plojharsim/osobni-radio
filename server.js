@@ -513,7 +513,7 @@ const safeEq = (a, b) => { const x = Buffer.from(String(a)), y = Buffer.from(Str
 const cookieOf = (req, name) => (req.headers.cookie || '').split(/;\s*/).map((c) => c.split('=')).find(([k]) => k === name)?.[1];
 const isHttps = (req) => req.headers['x-forwarded-proto'] === 'https' || /"scheme":"https"/.test(req.headers['cf-visitor'] || '');
 
-const PUBLIC_ASSETS = new Set(['/manifest.webmanifest', '/sw.js', '/icon-192.png', '/icon-512.png', '/icon-maskable.png', '/apple-touch-icon.png']);   // bez citlivých dat; nutné pro instalaci aplikace
+const PUBLIC_ASSETS = new Set(['/api/health', '/manifest.webmanifest', '/sw.js', '/icon-192.png', '/icon-512.png', '/icon-maskable.png', '/apple-touch-icon.png']);   // bez citlivých dat; nutné pro instalaci aplikace
 function authorized(req) {
   if (!APP_PASSWORD) return true;
   if (PUBLIC_ASSETS.has(new URL(req.url, 'http://x').pathname)) return true;
