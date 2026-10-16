@@ -87,6 +87,20 @@ Při problémech: `sudo systemctl status radio` a `sudo journalctl -u radio -f`.
 - **Reverzní proxy na stejném serveru (Caddy):** nech `HOST=127.0.0.1`, nainstaluj `caddy` a do `/etc/caddy/Caddyfile` dej `radio.tvoje-domena.cz { reverse_proxy 127.0.0.1:8787 }`.
 - **Docker:** `docker compose up -d` (data v kontejnerovém svazku).
 
+## Hudba se nepřehrává („Nepodařilo se přehrát…“, bot kontrola)
+Zvuk se hledá a získává přes yt-dlp a YouTube občas blokuje IP adresy serverů. Aplikace to pozná a napíše přesnou chybu. Co zkusit:
+
+1. **Podívej se na důvod:** `sudo journalctl -u radio -e` (řádky `[yt-dlp] …`).
+2. **Aktualizuj yt-dlp:** `sudo yt-dlp -U` (YouTube mění věci často; `update.sh` to dělá také).
+3. **„Sign in to confirm you're not a bot“ / 429:** yt-dlp potřebuje cookies přihlášeného účtu. Doporučuju k tomu **samostatný Google účet**, ne hlavní.
+   - V prohlížeči, kde jsi na YouTube přihlášený, exportuj cookies rozšířením typu „Get cookies.txt LOCALLY“ (jen pro `youtube.com`, formát Netscape).
+   - Ulož je na server do `/opt/radio/data/cookies.txt` a nastav vlastníka: `sudo chown radio: /opt/radio/data/cookies.txt && sudo chmod 600 /opt/radio/data/cookies.txt`.
+   - Do `/opt/radio/.env` přidej `YTDLP_COOKIES=/opt/radio/data/cookies.txt` a restartuj: `sudo systemctl restart radio`.
+4. Po blokaci aplikace 90 s nevolá yt-dlp, aby se zákaz neprodlužoval. Hudbu pak spustíš znovu tlačítkem přehrávání.
+5. Aplikace si pamatuje nalezená videa (`data/resolved.json`), takže opakované skladby nevyhledává znovu a volá YouTube méně.
+
+yt-dlp nově potřebuje JavaScript runtime pro řešení výzev YouTube. Aplikace mu automaticky předává Node.js, který už běží, a povolí stažení řešení výzev z GitHubu (`ejs:github`). Vypneš to přes `YTDLP_REMOTE_EJS=0`.
+
 ## Aktualizace
 ```bash
 sudo ./deploy/update.sh      # git pull + yt-dlp -U + edge-tts + restart + kontrola

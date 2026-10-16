@@ -279,17 +279,46 @@ async function nextTracks(n, exclude = [], mood = '') {
 }
 
 /* ---------- yt-dlp ---------- */
+// Společné argumenty yt-dlp: cookies (YTDLP_COOKIES), JavaScript runtime pro YouTube (node, který už běží) a vlastní argumenty (YTDLP_ARGS)
+let baseArgsP;
+function baseArgs() {
+  return (baseArgsP ||= (async () => {
+    const a = [];
+    const cookies = process.env.YTDLP_COOKIES;
+    if (cookies) { if (fs.existsSync(cookies)) a.push('--cookies', cookies); else console.warn('[yt-dlp] YTDLP_COOKIES ukazuje na neexistující soubor:', cookies); }
+    const help = await new Promise((r) => execFile(YTDLP, ['--help'], { maxBuffer: 5e6 }, (_e, out) => r(String(out || ''))));
+    if (/--js-runtimes/.test(help)) {   // novější yt-dlp potřebuje JS runtime k vyřešení výzvy YouTube
+      a.push('--js-runtimes', `node:${process.execPath}`);
+      if (process.env.YTDLP_REMOTE_EJS !== '0') a.push('--remote-components', 'ejs:github');
+    }
+    if (process.env.YTDLP_ARGS) a.push(...process.env.YTDLP_ARGS.split(/\s+/).filter(Boolean));
+    return a;
+  })());
+}
+
+// YouTube nás zrovna blokuje (bot kontrola / 429): po dobu pauzy se nevolá yt-dlp, ať se zákaz nepředlužuje
+let blockedUntil = 0;
+const BLOCK_RE = /sign in to confirm|not a bot|\b429\b|too many requests/i;
+const blockedError = () => Object.assign(new Error('YouTube teď blokuje server (bot kontrola nebo příliš mnoho požadavků).'), { code: 'yt_blocked', retryInSec: Math.ceil((blockedUntil - Date.now()) / 1000) });
+
 let running = 0; const waiting = [];
-function ytdlp(args, timeout = 45000) {
+async function ytdlp(args, timeout = 45000) {
+  if (Date.now() < blockedUntil) throw blockedError();
+  const full = [...(await baseArgs()), ...args];
   return new Promise((resolve, reject) => {
     const run = () => {
       running++;
-      execFile(YTDLP, args, { timeout, maxBuffer: 20e6 }, (err, stdout, stderr) => {
+      execFile(YTDLP, full, { timeout, maxBuffer: 20e6 }, (err, stdout, stderr) => {
         running--; waiting.shift()?.();
-        err ? reject(new Error((stderr || err.message).split('\n').filter(Boolean).pop())) : resolve(stdout);
+        if (!err) return resolve(stdout);
+        const msg = String(stderr || err.message);
+        const last = msg.split('\n').filter(Boolean).pop() || err.message;
+        console.warn('[yt-dlp]', last.slice(0, 300));
+        if (BLOCK_RE.test(msg)) { blockedUntil = Date.now() + 90e3; return reject(blockedError()); }
+        reject(new Error(last));
       });
     };
-    running < 3 ? run() : waiting.push(run);
+    running < 2 ? run() : waiting.push(run);
   });
 }
 
@@ -308,6 +337,7 @@ function score(entry, artist, title) {
   return s;
 }
 
+const resolved = store('resolved.json', {});   // artist|title -> {videoId, duration}: opakované skladby nehledáme znovu
 const streamCache = new Map();   // videoId -> { url, exp }
 const resolveCache = new Map();  // trackKey -> Promise
 
@@ -321,16 +351,25 @@ async function directUrl(videoId) {
   return url;
 }
 
+async function searchBest(query, artist, title) {
+  const out = await ytdlp(['--flat-playlist', '--no-warnings', '-j', query]);
+  const entries = out.trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  return entries.map((e) => ({ e, s: score(e, artist, title) })).filter((x) => x.s >= 0).sort((a, b) => b.s - a.s)[0];
+}
+
 function resolveTrack(artist, title) {
   const key = trackKey(artist, title);
   if (!resolveCache.has(key)) {
     const p = (async () => {
-      const out = await ytdlp(['--flat-playlist', '--no-warnings', '-j', `ytsearch6:${artist} - ${title}`]);
-      const entries = out.trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
-      const best = entries.map((e) => ({ e, s: score(e, artist, title) })).filter((x) => x.s >= 0).sort((a, b) => b.s - a.s)[0];
-      if (!best) throw new Error('nic nenalezeno');
-      await directUrl(best.e.id);
-      return { videoId: best.e.id, duration: best.e.duration, thumb: `https://i.ytimg.com/vi/${best.e.id}/hqdefault.jpg` };
+      let found = resolved.get()[key];
+      if (!found) {
+        const best = (await searchBest(`ytsearch6:${artist} - ${title}`, artist, title)) || (await searchBest(`ytsearch8:${artist} ${title} audio`, artist, title));
+        if (!best) throw new Error('na YouTube se nenašla vhodná verze skladby');
+        found = { videoId: best.e.id, duration: best.e.duration };
+        const r = resolved.get(); r[key] = found; const keys = Object.keys(r); if (keys.length > 3000) delete r[keys[0]]; resolved.save();
+      }
+      await directUrl(found.videoId);
+      return { videoId: found.videoId, duration: found.duration, thumb: `https://i.ytimg.com/vi/${found.videoId}/hqdefault.jpg` };
     })();
     p.catch(() => resolveCache.delete(key));
     resolveCache.set(key, p);
@@ -723,7 +762,7 @@ async function handle(req, res) {
     const artist = url.searchParams.get('artist'), title = url.searchParams.get('title');
     if (!artist || !title) return send(res, 400, { error: 'chybí parametry' });
     try { return send(res, 200, await resolveTrack(artist, title)); }
-    catch (e) { return send(res, 404, { error: e.message }); }
+    catch (e) { return send(res, e.code === 'yt_blocked' ? 503 : 404, { error: e.message, code: e.code, retryInSec: e.retryInSec }); }
   }
   if (p === '/api/dj' && req.method === 'POST') {
     const b = await readBody(req);

@@ -109,7 +109,13 @@ async function playNext(manual = false) {
     refill().then(planDj);
   } catch (e) {
     if (e.name === 'NotAllowedError') { setLoading(false); setPlaying(false); return; }
-    if (++state.fails >= 5) { setLoading(false); setPlaying(false); message('Nepodařilo se přehrát několik skladeb po sobě. Zkontroluj yt-dlp na serveru.'); return; }
+    if (e.data?.code === 'yt_blocked') {   // YouTube blokuje server: další skladby zkoušet nemá smysl, jen by to zákaz prodlužovalo
+      state.fails = 0; setLoading(false); setPlaying(false);
+      message('YouTube teď blokuje server (bot kontrola nebo příliš mnoho požadavků). Za chvíli zkus přehrávání znovu. Pokud se to opakuje, nastav na serveru cookies pro yt-dlp (viz README, sekce „Hudba se nepřehrává“).');
+      return;
+    }
+    state.lastError = e.message;
+    if (++state.fails >= 8) { state.fails = 0; setLoading(false); setPlaying(false); message(`Nepodařilo se přehrát několik skladeb po sobě (poslední chyba: ${state.lastError}). Zkontroluj yt-dlp na serveru: sudo journalctl -u radio -e`); return; }
     return playNext();
   }
   prefetch();
