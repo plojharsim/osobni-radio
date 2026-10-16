@@ -12,7 +12,6 @@ Mezi skladbami občas promluví **AI moderátor** (hlášky, zprávy, počasí).
 - **ListenBrainz zpětně:** s tokenem odesílá poslechy (scrobble) a hodnocení „líbí / nelíbí“.
 - **AI moderátor:** text přes [OpenRouter](https://openrouter.ai) (zdarma dostupný model, při selhání záložní `openrouter/free`), hlas neurální (edge-tts). Hlášky, zprávy (ČT24 / BBC) a počasí ([Open-Meteo](https://open-meteo.com)), nastavitelná četnost 15–100 %.
 - **Mobil:** responzivní rozložení, přetahování po liště postupu prstem, ovládání ze zamčené obrazovky; lze nainstalovat jako aplikaci (PWA): Chrome / Edge / Safari přes „Přidat na plochu“, Firefox pro Android přes menu → „Nainstalovat“. Firefox na počítači instalaci webových aplikací nepodporuje. Vyžaduje HTTPS (Cloudflare Tunnel ho zajišťuje).
-- **Debug menu** (klávesa `` ` ``).
 
 ## Rychlý start
 Potřebuješ: Node.js ≥ 20, [yt-dlp](https://github.com/yt-dlp/yt-dlp), ffmpeg a pro moderátora python3.
@@ -26,7 +25,7 @@ node server.js                                            # http://127.0.0.1:878
 V aplikaci (ozubené kolo) zadej uživatelské jméno z ListenBrainz. User token ([nastavení účtu](https://listenbrainz.org/settings/)) je potřeba pro objevování podobných interpretů a synchronizaci poslechů.
 Pro moderátora vlož klíč z [openrouter.ai/keys](https://openrouter.ai/keys).
 
-**Ovládání:** mezerník = přehrát/pauza · → = další · L = líbí · D = nechci to slyšet · F = celá obrazovka · ↑/↓ = hlasitost · ` = debug
+**Ovládání:** mezerník = přehrát/pauza · → = další · L = líbí · D = nechci to slyšet · F = celá obrazovka · ↑/↓ = hlasitost
 
 ## Nastavení (`.env`)
 Zkopíruj `.env.example` na `.env`. Důležité: `APP_PASSWORD` (heslo k celé aplikaci, zadává se na přihlašovací stránce, jen heslo – nastav ho, jakmile je dostupná z internetu), `PORT`, `HOST`, `OPENROUTER_API_KEY`, `LB_USER`, `LB_TOKEN`. Nastavení z aplikace se ukládá do `data/`.

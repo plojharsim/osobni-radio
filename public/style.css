@@ -1,4 +1,4 @@
-/* ===== Design tokeny – jediný zdroj pravdy pro celou aplikaci (včetně debug menu) ===== */
+/* ===== Design tokeny – jediný zdroj pravdy pro celou aplikaci ===== */
 :root {
   --bg: #0b0b0d; --fg: #f4f4f6; --dim: #adadb8; --line: rgba(255,255,255,.14);
   --surface: rgba(255,255,255,.07); --surface-hi: rgba(255,255,255,.12); --panel: #131316;
@@ -36,10 +36,10 @@ svg.fill, .play svg { fill: currentColor; stroke: none; }
 .chip:hover:not(:disabled) { color: var(--fg); background: var(--surface-hi); }
 .chip:disabled { opacity: .5; cursor: default; }
 .chip[aria-pressed=true] { color: var(--bg); background: var(--fg); border-color: var(--fg); }
-.btn, .row button, .testbtn, .dbgx-acts button, .dbgx-filter button { padding: 9px 16px; border-radius: var(--r-md); font-size: var(--fs-sm); border: 1px solid var(--line); background: var(--surface); color: var(--fg); transition: background .15s; }
-.btn:hover, .row button:hover, .testbtn:hover, .dbgx-acts button:hover, .dbgx-filter button:hover { background: var(--surface-hi); }
+.btn, .row button, .testbtn { padding: 9px 16px; border-radius: var(--r-md); font-size: var(--fs-sm); border: 1px solid var(--line); background: var(--surface); color: var(--fg); transition: background .15s; }
+.btn:hover, .row button:hover, .testbtn:hover { background: var(--surface-hi); }
 .row .ghost { border-color: transparent; background: none; color: var(--dim); } .row .ghost:hover { color: var(--fg); background: var(--surface); }
-.row .primary, .dbgx-filter button.on { background: var(--fg); color: var(--bg); border-color: var(--fg); font-weight: 600; }
+.row .primary { background: var(--fg); color: var(--bg); border-color: var(--fg); font-weight: 600; }
 .testbtn { margin-top: 14px; width: 100%; }
 
 /* ---------- rozložení ---------- */

@@ -217,8 +217,6 @@ function score(entry, artist, title) {
   return s;
 }
 
-let ytdlpVer;
-const ytdlpVersion = async () => (ytdlpVer ||= (await ytdlp(['--version']).catch(() => 'nedostupný')).trim());
 const streamCache = new Map();   // videoId -> { url, exp }
 const resolveCache = new Map();  // trackKey -> Promise
 
@@ -388,7 +386,6 @@ async function geocode(name) {
 const lastKind = { news: 0, weather: 0 };
 
 const recentLines = [];
-const djLog = [];
 const SOURCE_HINT = (src = '') =>
   src.startsWith('podobné:') ? `interpret podobný tomu, co posluchač rád poslouchá (${src.slice(8).trim()})`
   : src === 'doporučení' ? 'doporučení podle jeho hudebního vkusu'
@@ -456,7 +453,7 @@ const djJobs = new Map();
 function makeBreak(body) {
   const c = djCfg();
   if (!c.enabled || !c.key) return Promise.reject(new Error('moderátor není nastaven'));
-  const k = `${body.kind || 'chat'}|${body.next?.title}|${body.next?.artist}${body.force ? `|${Date.now()}` : ''}`;
+  const k = `${body.kind || 'chat'}|${body.next?.title}|${body.next?.artist}`;
   if (!djJobs.has(k)) {
     const p = (async () => {
       cleanTts();
@@ -464,19 +461,15 @@ function makeBreak(body) {
       const loc = settings.get().location;
       const ready = Date.now();
       // zprávy a počasí mají odstup, aby se neopakovaly
-      if (kind === 'weather' && (!c.weather || !loc || (!body.force && ready - lastKind.weather < 60 * 60e3))) kind = 'chat';
-      if (kind === 'news' && (!c.news || (!body.force && ready - lastKind.news < 25 * 60e3))) kind = 'chat';
+      if (kind === 'weather' && (!c.weather || !loc || ready - lastKind.weather < 60 * 60e3)) kind = 'chat';
+      if (kind === 'news' && (!c.news || ready - lastKind.news < 25 * 60e3)) kind = 'chat';
       const ctx = { ...c, cityName: loc?.name };
       try {
         if (kind === 'weather') { ctx.weatherData = await getWeather(loc); if (!ctx.weatherData?.desc) throw new Error('počasí nedostupné'); }
         if (kind === 'news') ctx.newsData = await getNews(c.lang);
       } catch (e) { console.warn('[dj]', kind, e.message); kind = 'chat'; }
-      const t0 = Date.now();
-      const { text, model } = await djScript({ ...body, kind }, ctx);
-      const llmMs = Date.now() - t0;
+      const { text } = await djScript({ ...body, kind }, ctx);
       const id = await synth(text, c.voice);
-      djLog.push({ at: Date.now(), text, kind, asked: body.kind || 'chat', model, llmMs, totalMs: Date.now() - t0, next: `${body.next.artist} – ${body.next.title}` });
-      if (djLog.length > 15) djLog.shift();
       if (kind === 'chat') { recentLines.push(text); if (recentLines.length > 8) recentLines.shift(); }
       else { lastKind[kind] = Date.now(); if (kind === 'news') ctx.newsData.forEach((n) => usedNews.add(n.title)); }
       return { id, text, kind };
@@ -631,19 +624,6 @@ async function handle(req, res) {
     if (!artist || !title) return send(res, 400, { error: 'chybí parametry' });
     try { return send(res, 200, await resolveTrack(artist, title)); }
     catch (e) { return send(res, 404, { error: e.message }); }
-  }
-  if (p === '/api/debug') {
-    const c = djCfg(), loc = settings.get().location;
-    const ago = (t) => (t ? Math.round((Date.now() - t) / 1000) : null);
-    return send(res, 200, {
-      version: VERSION, uptimeSec: Math.round(process.uptime()), node: process.version, ytdlp: await ytdlpVersion(), ttsBin: TTS_BIN,
-      caches: { resolve: resolveCache.size, streamUrls: streamCache.size, loudness: loudCache.size, lyrics: lyricsCache.size, djJobs: djJobs.size, lb: cache.size },
-      historySize: history.get().length, loved: feedback.get().love.length, hated: feedback.get().hate.length,
-      ttsFiles: fs.readdirSync(TTS_DIR).length, ytdlpRunning: running, ytdlpWaiting: waiting.length,
-      dj: { enabled: c.enabled, hasKey: !!c.key, model: c.model, voice: c.voice, lang: c.lang, freq: djFreq(c.freq), news: c.news, weather: c.weather, city: loc?.name || null,
-        newsCooldownLeftSec: Math.max(0, 25 * 60 - (ago(lastKind.news) ?? 1e9)), weatherCooldownLeftSec: Math.max(0, 60 * 60 - (ago(lastKind.weather) ?? 1e9)), usedNews: usedNews.size },
-      djLog,
-    });
   }
   if (p === '/api/dj' && req.method === 'POST') {
     const b = await readBody(req);

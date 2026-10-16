@@ -8,8 +8,6 @@ const api = async (path, opts) => {
   return data;
 };
 
-const dbgLog = [];
-function dbg(msg) { dbgLog.push({ at: Date.now(), msg }); if (dbgLog.length > 80) dbgLog.shift(); }
 const state = { dj: { cfg: null, since: 0, plan: null }, djActive: false, queue: [], current: null, started: false, listenSent: false, fb: { love: new Set(), hate: new Set() }, fails: 0 };
 
 const fmt = (s) => (isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '0:00');
@@ -51,13 +49,11 @@ function renderQueue() {
 }
 
 const resolve = (t) => (t.resolving ||= (() => {
-  const t0 = Date.now();
   return api(`/api/resolve?artist=${encodeURIComponent(t.artist)}&title=${encodeURIComponent(t.title)}`).then((r) => {
-    t.resolveMs = Date.now() - t0; dbg(`resolve ${t.artist} – ${t.title}: ${t.resolveMs} ms`);
     return Object.assign(t, r);
   });
 })());
-const measure = (t) => (t.measuring ||= resolve(t).then(() => api(`/api/loudness?id=${t.videoId}`)).then((r) => { t.lufs = r.lufs; dbg(`hlasitost ${t.title}: ${r.lufs ?? '?'} LUFS`); return r.lufs; }).catch(() => null));
+const measure = (t) => (t.measuring ||= resolve(t).then(() => api(`/api/loudness?id=${t.videoId}`)).then((r) => (t.lufs = r.lufs)).catch(() => null));
 
 /* ---------- normalizace hlasitosti (Web Audio) ---------- */
 const TARGET_LUFS = -14;
@@ -91,7 +87,6 @@ async function playNext(manual = false) {
   state.current = t; state.listenSent = false;
   state.dj.since++;
   scheduleDj();
-  dbg(`▶ ${t.artist} – ${t.title} [${t.source}] · vstup po ní: ${t.dj ? (t.dj.yes ? `ANO (${t.dj.kind})` : 'ne') : '—'}`);
   show(t); renderQueue(); refill(); loadLyrics(t); updateDjInfo();
 
   setLoading(true); message('');
@@ -339,7 +334,7 @@ function scheduleDj() {
   if (!c?.enabled || !c.hasKey) return;
   let since = state.current ? state.dj.since : state.dj.since + 1;
   for (const t of [state.current, ...state.queue].filter(Boolean)) {
-    if (!t.dj) { t.dj = { yes: since >= djGap(c) && Math.random() < djChance(c), kind: pickKind(c) }; dbg(`rozhodnutí: po „${t.title}“ ${t.dj.yes ? `vstup (${t.dj.kind})` : 'bez vstupu'} [od posl. vstupu ${since}]`); }
+    if (!t.dj) { t.dj = { yes: since >= djGap(c) && Math.random() < djChance(c), kind: pickKind(c) } }
     since = t.dj.yes ? 1 : since + 1;
   }
 }
@@ -350,15 +345,14 @@ function planDj() {
   if (!c?.enabled || !c.hasKey || !next || !cur || state.djActive || !cur.dj?.yes || state.dj.plan?.forId === next.id) return updateDjInfo();
   const when = new Date().toLocaleString('cs-CZ', { weekday: 'long', hour: '2-digit', minute: '2-digit' });
   const pick = (t) => ({ artist: t.artist, title: t.title, source: t.source });
-  const plan = state.dj.plan = { forId: next.id, status: 'generating', startedAt: Date.now() };
-  dbg(`generuji vstup (${cur.dj.kind}) před „${next.title}“`);
-  plan.clip = api('/api/dj', { prev: pick(cur), next: pick(next), when, kind: cur.dj.kind, force: !!cur.dj.force })
+  const plan = state.dj.plan = { forId: next.id, status: 'generating' };
+  plan.clip = api('/api/dj', { prev: pick(cur), next: pick(next), when, kind: cur.dj.kind })
     .then(async (r) => {
       const url = URL.createObjectURL(await (await fetch(`/api/dj/audio/${r.id}.mp3`)).blob());
-      plan.status = 'ready'; plan.kind = r.kind; plan.text = r.text; plan.ms = Date.now() - plan.startedAt; dbg(`vstup hotový (${r.kind}) za ${plan.ms} ms: „${r.text}“`); updateDjInfo();
+      plan.status = 'ready'; plan.kind = r.kind; updateDjInfo();
       return { text: r.text, url, kind: r.kind };
     })
-    .catch((e) => { plan.status = 'failed'; plan.error = e.message; dbg(`generování vstupu selhalo: ${e.message}`); updateDjInfo(); return null; });
+    .catch(() => { plan.status = 'failed'; updateDjInfo(); return null; });
   updateDjInfo();
 }
 
@@ -382,12 +376,10 @@ async function afterTrack() {
   if (plan && plan.forId === state.queue[0]?.id) {
     const clip = await Promise.race([plan.clip, new Promise((r) => setTimeout(() => r(null), 8000))]);
     if (clip) return playDj(clip);
-    dbg('vstup nebyl včas hotový → přeskočen');
   }
   playNext();
 }
 function playDj(clip) {
-  dbg(`moderátor mluví (${clip.kind})`);
   state.djActive = true; state.dj.since = 0; state.dj.url = clip.url; updateDjInfo();
   document.body.classList.add('dj');
   $('djText').textContent = clip.text; $('djText').hidden = false;
@@ -482,12 +474,5 @@ async function init() {
   refill();
 }
 init();
-
-// Rozhraní pro nezávislý debug modul (debug.js) – jen čtení stavu a pár akcí
-window.radio = {
-  state, audio, dbgLog, log: dbg, api,
-  get gain() { return gain; },
-  dj: { chance: djChance, gap: djGap, freq: djFreq, schedule: scheduleDj, plan: planDj, clear: clearDjDecisions, info: updateDjInfo },
-};
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
