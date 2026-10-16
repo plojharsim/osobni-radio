@@ -7,7 +7,11 @@ main() {
   cd "$(dirname "$0")/.."
   git pull --ff-only
   [ -f package-lock.json ] && npm ci --omit=dev || true   # aplikace nemá závislosti, pro případ budoucích
-  /usr/local/bin/yt-dlp -U || true
+  if [ -d bgutil-ytdlp-pot-provider ]; then
+    ./deploy/install-potoken.sh --quiet || true            # yt-dlp i plugin PO tokenu z .venv + případná přestavba pomocného serveru
+  else
+    /usr/local/bin/yt-dlp -U || true
+  fi
   [ -x .venv/bin/pip ] || python3 -m venv .venv
   .venv/bin/pip install -q --upgrade edge-tts || true     # Microsoft občas mění protokol, nová verze to dožene
   systemctl restart radio

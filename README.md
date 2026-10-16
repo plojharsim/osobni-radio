@@ -103,6 +103,13 @@ Typicky hlášky „Nepodařilo se přehrát…“ nebo „ověřte, že nejste 
 
 yt-dlp nově potřebuje JavaScript runtime pro řešení výzev YouTube. Aplikace mu automaticky předává Node.js, který už běží, a povolí stažení řešení výzev z GitHubu (`ejs:github`). Vypneš to přes `YTDLP_REMOTE_EJS=0`.
 
+### Ochrana proti bot kontrole bez přihlášení (PO token)
+Když YouTube i po kroku s IPv4 blokuje server, jde to řešit **bez cookies a účtu** pomocí tzv. PO tokenu. Používá se plugin [bgutil-ytdlp-pot-provider](https://github.com/Brainicism/bgutil-ytdlp-pot-provider), který ho yt-dlp generuje automaticky. Na serveru:
+```bash
+cd /opt/radio && sudo ./deploy/install-potoken.sh
+```
+Skript nainstaluje yt-dlp a plugin do `.venv` aplikace, sestaví pomocný server (potřebuje Node.js ≥ 22 a git), vytvoří službu `radio-pot` (poslouchá jen na `127.0.0.1:4416`) a nastaví `YTDLP_BIN` v `.env`. Je idempotentní, `update.sh` ho při aktualizaci spouští sám a týdenní aktualizace taky. Ověření vypíše skript na konci. Žádná záruka: YouTube pravidla průběžně mění, takže může být občas potřeba aktualizace (`sudo ./deploy/update.sh`).
+
 ## Aktualizace
 ```bash
 sudo ./deploy/update.sh      # git pull + yt-dlp -U + edge-tts + restart + kontrola
