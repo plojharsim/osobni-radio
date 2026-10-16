@@ -376,11 +376,16 @@ async function lyrics(artist, title, duration) {
   const key = trackKey(artist, title);
   if (lyricsCache.has(key)) return lyricsCache.get(key);
   const q = new URLSearchParams({ artist_name: artist, track_name: title });
+  const has = (x) => x && (x.syncedLyrics || x.plainLyrics);
+  const diff = (x) => Math.abs((x.duration || 0) - (duration || 0));
   let hit = await lrclib(`get?${q}${duration ? `&duration=${Math.round(duration)}` : ''}`).catch(() => null);
-  if (!hit || (!hit.syncedLyrics && !hit.plainLyrics)) {
-    const list = (await lrclib(`search?${q}`).catch(() => null)) || [];
-    hit = list.filter((x) => x.syncedLyrics || x.plainLyrics)
-      .sort((a, b) => Math.abs((a.duration || 0) - (duration || 0)) - Math.abs((b.duration || 0) - (duration || 0)))[0];
+  if (!has(hit)) {
+    const list = ((await lrclib(`search?${q}`).catch(() => null)) || []).filter(has);
+    // preferuj záznamy, které sedí interpretem i názvem (jiné verze – live, remix – mají jiné časování), z nich nejbližší délkou
+    const sameTitle = list.filter((x) => cleanTitle(x.trackName || '') === cleanTitle(title) && primaryArtist(x.artistName || '').startsWith(primaryArtist(artist).slice(0, 6)));
+    const pool = sameTitle.length ? sameTitle : list;
+    hit = pool.sort((a, b) => (b.syncedLyrics ? 1 : 0) - (a.syncedLyrics ? 1 : 0) || diff(a) - diff(b))[0];
+    if (hit && sameTitle.length) hit = sameTitle.filter((x) => x.syncedLyrics).sort((a, b) => diff(a) - diff(b))[0] || hit;
   }
   const out = hit && !hit.instrumental
     ? { synced: hit.syncedLyrics ? parseLrc(hit.syncedLyrics) : null, plain: hit.plainLyrics || null }
@@ -797,6 +802,11 @@ async function handle(req, res) {
   // statické soubory
   let file = path.normalize(path.join(PUBLIC, p === '/' ? 'index.html' : p));
   if (!file.startsWith(PUBLIC) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); return res.end('Nenalezeno'); }
+  if (path.basename(file) === 'index.html') {   // do HTML se vkládá verze: odkazy na JS/CSS dostanou ?v=verze, takže cache prohlížeče ani Cloudflare nedrží starý kód
+    const html = Buffer.from(fs.readFileSync(file, 'utf8').replaceAll('__VERSION__', VERSION));
+    res.writeHead(200, { 'Content-Type': MIME['.html'], 'Content-Length': html.length, 'Cache-Control': 'no-store', 'CDN-Cache-Control': 'no-store', 'Cloudflare-CDN-Cache-Control': 'no-store' });
+    return res.end(html);
+  }
   res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream', 'Content-Length': fs.statSync(file).size, 'Cache-Control': 'no-cache', 'CDN-Cache-Control': 'no-store', 'Cloudflare-CDN-Cache-Control': 'no-store' });   // ani CDN (Cloudflare) nesmí držet starou verzi
   fs.createReadStream(file).pipe(res);
 }

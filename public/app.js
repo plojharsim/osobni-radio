@@ -200,13 +200,14 @@ if (audio.volume !== 0.5) document.body.classList.add('no-volume');   // iOS: hl
 try { setVolume(Number(localStorage.getItem('volume') ?? 1), false); } catch { setVolume(1, false); }
 
 /* ---------- texty písní ---------- */
-const lyr = { data: null, open: false, idx: -1, lines: [] };
+const lyr = { data: null, open: false, idx: -1, lines: [], offset: 0 };
 try { lyr.open = localStorage.getItem('lyrics') === '1'; } catch {}
 function renderLyrics() {
   const box = $('lyricsBody'), has = !!(lyr.data && (lyr.data.synced?.length || lyr.data.plain));
   $('lyricsBtn').disabled = !has; $('lyricsBtn').textContent = has ? 'Text písně' : 'Text nenalezen';
   $('lyricsBtn').setAttribute('aria-pressed', has && lyr.open);
   $('lyrics').hidden = !(has && lyr.open);
+  $('lyrSync').hidden = $('lyrics').hidden || !lyr.data?.synced?.length;
   box.innerHTML = ''; lyr.idx = -1; lyr.lines = [];
   if (!has) return;
   $('lyrics').classList.toggle('plain', !lyr.data.synced?.length);
@@ -214,11 +215,14 @@ function renderLyrics() {
   if (lyr.data.synced?.length) {
     lyr.data.synced.forEach((l) => {
       const p = document.createElement('p'); p.className = l.text ? 'sync' : 'sync gap';
-      const words = l.text.split(/\s+/).filter(Boolean), total = words.reduce((n, w) => n + w.length + 1, 0);
+      const words = l.text.split(/\s+/).filter(Boolean);
+      // doba slova ~ počet slabik (skupiny samohlásek) + krátká pauza za interpunkcí – blíž tomu, jak se opravdu zpívá, než délka v písmenech
+      const weight = (w) => Math.max(1, (w.match(/[aeiouyáéěíóúůýöüäåøæœ]+/gi) || []).length) + (/[,.!?;:–-]$/.test(w) ? 0.6 : 0);
+      const total = words.reduce((n, w) => n + weight(w), 0);
       let acc = 0; const spans = [];
       words.forEach((w, i) => {
         const sp = document.createElement('span'); sp.className = 'w'; sp.textContent = w;
-        sp.dataset.a = acc / total; acc += w.length + 1; sp.dataset.b = acc / total;
+        sp.dataset.a = acc / total; acc += weight(w); sp.dataset.b = acc / total;
         spans.push(sp); p.append(sp); if (i < words.length - 1) p.append(' ');
       });
       p.onclick = () => { audio.currentTime = l.t; };
@@ -230,6 +234,8 @@ function renderLyrics() {
 }
 async function loadLyrics(t) {
   lyr.data = null; renderLyrics();
+  try { lyr.offset = Number(localStorage.getItem(`lyroff:${t.id}`)) || 0; } catch { lyr.offset = 0; }
+  showOffset();
   $('lyricsBtn').textContent = 'Hledám text…';
   try {
     await resolve(t).catch(() => {});
@@ -241,7 +247,9 @@ async function loadLyrics(t) {
 // Karaoke efekt: aktuální řádek se zleva doprava vybarvuje po slovech podle odhadu, jak dlouho se řádek zpívá
 function syncLyrics() {
   const L = lyr.data?.synced; if (state.djActive || !L?.length || $('lyrics').hidden) return;
-  const now = audio.currentTime + 0.15;
+  // čas, který posluchač právě slyší: pozice přehrávače minus zpoždění výstupu (např. bluetooth) + malý předstih + ruční posun
+  const latency = ctx ? (ctx.outputLatency || 0) : 0;
+  const now = audio.currentTime - latency + 0.1 + lyr.offset;
   let i = -1; for (let k = 0; k < L.length && L[k].t <= now; k++) i = k;
   if (i !== lyr.idx) {
     lyr.lines.forEach((ln, k) => {
@@ -253,15 +261,24 @@ function syncLyrics() {
     if (el) { const box = $('lyrics'); box.scrollTop = el.offsetTop - box.clientHeight / 2 + el.clientHeight / 2 - box.offsetTop; }
   }
   const ln = lyr.lines[i]; if (!ln || !L[i].text) return;
-  const next = L[i + 1]?.t ?? L[i].t + 5;
-  const chars = L[i].text.length;
-  const dur = Math.max(0.8, Math.min(next - L[i].t - 0.15, chars * 0.075 + 0.5));   // zpívá se kratší dobu než do dalšího řádku
+  // vybarvování se táhne po většinu mezery do dalšího řádku (u dlouhých pauz se zastaví dřív), takže nedobíhá předčasně
+  const gap = (L[i + 1]?.t ?? L[i].t + 5) - L[i].t, chars = L[i].text.length;
+  const dur = Math.max(0.8, gap <= 7 ? gap * 0.9 : Math.min(gap * 0.9, chars * 0.1 + 1.5));
   const f = Math.min(1, Math.max(0, (now - L[i].t) / dur));
   for (const sp of ln.spans) {
     const a = Number(sp.dataset.a), b = Number(sp.dataset.b);
     sp.style.setProperty('--p', `${Math.min(1, Math.max(0, (f - a) / (b - a))) * 100}%`);
   }
 }
+// ruční posun textu (pamatuje se pro každou skladbu zvlášť)
+const offKey = () => `lyroff:${state.current?.id}`;
+function showOffset() { $('lyrOff').textContent = `${lyr.offset >= 0 ? '+' : '−'}${Math.abs(lyr.offset).toFixed(2).replace('.', ',')} s`; }
+function nudge(d) {
+  lyr.offset = Math.round((lyr.offset + d) * 100) / 100; showOffset(); lyr.idx = -1; syncLyrics();
+  try { localStorage.setItem(offKey(), lyr.offset); } catch {}
+}
+$('lyrMinus').onclick = () => nudge(-0.25);
+$('lyrPlus').onclick = () => nudge(0.25);
 let raf = 0;
 function lyricsLoop() { syncLyrics(); raf = audio.paused ? 0 : requestAnimationFrame(lyricsLoop); }
 function startLyricsLoop() { if (!raf) raf = requestAnimationFrame(lyricsLoop); }

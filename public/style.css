@@ -142,6 +142,12 @@ dialog label.check input { width: 18px; height: 18px; margin: 0; accent-color: v
 .opt { opacity: .7; }
 .row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }
 
+.lyrsync { display: flex; align-items: center; gap: 8px; margin: 14px 8px 0; font-size: var(--fs-xs); color: var(--dim); text-shadow: var(--ts); }
+.lyrsync span { margin-right: auto; }
+.lyrsync .chip { padding: 2px 12px; font-size: var(--fs-md); line-height: 1.4; }
+.lyrsync output { min-width: 56px; text-align: center; font-variant-numeric: tabular-nums; color: var(--fg); }
+.appver { margin-top: 36px; text-align: center; font-size: 11px; color: var(--dim); opacity: .65; }
+.fs .appver, .fs .lyrsync, body.dj .lyrsync { display: none; }
 .moodgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
 .moodgrid .chip { padding: 11px 12px; font-size: var(--fs-md); text-align: center; }
 .moodgrid .chip.wide { grid-column: 1 / -1; }
