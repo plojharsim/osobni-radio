@@ -284,7 +284,8 @@ const COOKIES_FILE = path.join(DATA, 'cookies.txt');   // sem se ukládají cook
 let baseArgsP;
 function baseArgs() {
   return (baseArgsP ||= (async () => {
-    const a = [];
+    // služba běží s ProtectSystem=strict: zapisovat jde jen do data/, takže cache yt-dlp (řešení výzev YouTube) musí být tam
+    const a = ['--cache-dir', path.join(DATA, 'yt-dlp-cache')];
     if (process.env.YTDLP_IPV4 !== '0') a.push('--force-ipv4');   // YouTube blokuje IPv6 adresy přísněji; přes IPv4 bot kontrola často zmizí
     const cookies = process.env.YTDLP_COOKIES || (fs.existsSync(COOKIES_FILE) ? COOKIES_FILE : '');
     if (cookies) { if (fs.existsSync(cookies)) a.push('--cookies', cookies); else console.warn('[yt-dlp] YTDLP_COOKIES ukazuje na neexistující soubor:', cookies); }
@@ -447,6 +448,7 @@ async function proxyStream(req, res, videoId) {
     const headers = {};
     if (req.headers.range) headers.Range = req.headers.range;
     const up = await fetch(url, { headers, signal: ac.signal });
+    if (up.status >= 400) console.warn('[stream] googlevideo odpovědělo', up.status, 'pro', videoId, attempt === 0 ? '(zkouším znovu s novou adresou)' : '');
     if ((up.status === 403 || up.status === 410) && attempt === 0) { streamCache.delete(videoId); continue; }
     const h = { 'Accept-Ranges': 'bytes', 'Cache-Control': 'no-store' };
     for (const k of ['content-type', 'content-length', 'content-range']) if (up.headers.get(k)) h[k] = up.headers.get(k);
