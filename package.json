@@ -1,0 +1,12 @@
+{
+  "name": "osobni-radio",
+  "version": "1.0.0",
+  "description": "Osobní rádio: hudba podle tvého vkusu z ListenBrainz, zvuk přes yt-dlp, AI moderátor mezi skladbami",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "author": "plojharsim",
+  "engines": { "node": ">=20" },
+  "scripts": { "start": "node server.js" },
+  "keywords": ["radio", "listenbrainz", "yt-dlp", "music", "self-hosted"]
+}

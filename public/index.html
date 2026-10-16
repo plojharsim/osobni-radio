@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0b0d">
+<title>Osobní rádio</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%23b794f6'/%3E%3Ccircle cx='16' cy='16' r='4' fill='%230b0b0d'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="bg" width="128" height="128" aria-hidden="true"></canvas>
+
+<header>
+  <span class="brand">Osobní rádio<small>by plojharsim</small></span>
+  <div class="hdr-actions">
+  <button id="fsBtn" class="icon" title="Celá obrazovka (F)" aria-label="Celá obrazovka">
+    <svg viewBox="0 0 24 24" class="i-enter"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+    <svg viewBox="0 0 24 24" class="i-exit"><path d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3M16 21v-3a2 2 0 0 1 2-2h3"/></svg>
+  </button>
+  <button id="settingsBtn" class="icon" title="Nastavení" aria-label="Nastavení">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+  </button>
+  </div>
+</header>
+
+<main>
+  <div class="left">
+  <div id="cover" class="cover"><img id="coverImg" alt=""><div class="spinner"></div><div class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></div></div>
+  </div>
+
+  <div class="right">
+  <div class="meta">
+    <h1 id="title">—</h1>
+    <p id="artist">&nbsp;</p>
+    <p id="source" class="source">&nbsp;</p>
+    <p id="djText" class="djtext" hidden></p>
+  </div>
+
+  <div class="progress" id="progress"><div id="bar"></div></div>
+  <div class="times"><span id="cur">0:00</span><span id="dur">0:00</span></div>
+
+  <div class="controls">
+    <button id="hate" class="icon" title="Nechci to slyšet (D)" aria-label="Nelíbí se">
+      <svg viewBox="0 0 24 24"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.7a2 2 0 0 0-2 1.7l-1.4 9a2 2 0 0 0 2 2.3zM17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>
+    </button>
+    <button id="play" class="play" title="Přehrát / pauza (mezerník)" aria-label="Přehrát">
+      <svg class="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      <svg class="i-pause" viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>
+    </button>
+    <button id="next" class="icon" title="Další (→)" aria-label="Další">
+      <svg viewBox="0 0 24 24" class="fill"><path d="M6 5l9 7-9 7zM17 5h2v14h-2z"/></svg>
+    </button>
+    <button id="love" class="icon" title="Líbí se mi (L)" aria-label="Líbí se mi">
+      <svg viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+    </button>
+  </div>
+
+  <div class="extras">
+    <label class="vol" title="Hlasitost">
+      <svg viewBox="0 0 24 24" id="volIcon"><path d="M11 5L6 9H2v6h4l5 4zM15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+      <input id="volume" type="range" min="0" max="1" step="0.01" value="1" aria-label="Hlasitost">
+    </label>
+    <div class="chips">
+      <button id="lyricsBtn" class="chip" disabled aria-pressed="false">Text písně</button>
+    </div>
+  </div>
+
+  <p id="djInfo" class="djinfo" hidden></p>
+
+  <section id="lyrics" class="lyrics" hidden><div id="lyricsBody"></div></section>
+
+  <div id="msg" class="msg" hidden></div>
+
+  <section id="upnext" class="upnext" hidden>
+    <h2>Příště</h2>
+    <ul id="queueList"></ul>
+  </section>
+  </div>
+</main>
+
+<dialog id="dlg">
+  <form method="dialog" id="form">
+    <h2>Nastavení</h2>
+    <p class="hint">Osobní rádio vybírá hudbu podle tvého účtu na <a href="https://listenbrainz.org" target="_blank" rel="noopener">ListenBrainz</a>.</p>
+    <label>Uživatelské jméno ListenBrainz
+      <input id="fUser" autocomplete="off" autocapitalize="off" spellcheck="false" required>
+    </label>
+    <label>User token <span class="opt">(volitelné)</span>
+      <input id="fToken" type="password" autocomplete="off" placeholder="nechat prázdné = beze změny">
+    </label>
+    <p class="hint">Token je potřeba pro objevování podobných interpretů; navíc se s ním poslechy odesílají zpět do ListenBrainz a „líbí / nelíbí“ se tam synchronizuje. Najdeš ho v <a href="https://listenbrainz.org/settings/" target="_blank" rel="noopener">nastavení účtu</a>.</p>
+    <h3>AI moderátor</h3>
+    <p class="hint">Mezi skladbami občas zazní hláška jako v pravém rádiu. Text píše AI přes <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">OpenRouter</a> (zdarma dostupný model), mluví neurální hlas.</p>
+    <label class="check"><input type="checkbox" id="djOn"> Zapnout moderátora</label>
+    <label>OpenRouter API klíč
+      <input id="djKey" type="password" autocomplete="off" placeholder="sk-or-…">
+    </label>
+    <div class="grid2">
+      <label>Jazyk hlášek
+        <select id="djLang"><option value="cs">Česky</option><option value="en">English</option></select>
+      </label>
+      <label>Četnost
+        <select id="djFreq"><option value="few">Málo (15 %)</option><option value="sometimes">Občas (25 %)</option><option value="normal">Normálně (45 %)</option><option value="more">Častěji (65 %)</option><option value="often">Často (85 %)</option><option value="always">Vždy (100 %)</option></select>
+      </label>
+    </div>
+    <label>Hlas
+      <select id="djVoice">
+        <option value="en-US-AvaMultilingualNeural">Ava (žena, expresivní)</option>
+        <option value="en-US-EmmaMultilingualNeural">Emma (žena, veselá)</option>
+        <option value="en-US-AndrewMultilingualNeural">Andrew (muž, vřelý)</option>
+        <option value="en-US-BrianMultilingualNeural">Brian (muž, uvolněný)</option>
+        <option value="fr-FR-VivienneMultilingualNeural">Vivienne (žena)</option>
+        <option value="fr-FR-RemyMultilingualNeural">Rémy (muž)</option>
+        <option value="de-DE-SeraphinaMultilingualNeural">Seraphina (žena)</option>
+        <option value="de-DE-FlorianMultilingualNeural">Florian (muž)</option>
+      </select>
+    </label>
+    <label class="check"><input type="checkbox" id="djNews"> Občas přečíst zprávy</label>
+    <label class="check"><input type="checkbox" id="djWeather"> Občas říct počasí</label>
+    <label>Město pro počasí
+      <input id="djCity" autocomplete="off" placeholder="např. Praha">
+    </label>
+    <button type="button" id="djTest" class="ghost testbtn">▶ Vyzkoušet hlas</button>
+    <div class="row">
+      <button type="button" id="cancel" class="ghost">Zavřít</button>
+      <button type="submit" class="primary">Uložit</button>
+    </div>
+  </form>
+</dialog>
+
+<audio id="audio" preload="auto"></audio>
+<script src="app.js"></script>
+<script src="debug.js"></script>
+</body>
+</html>
