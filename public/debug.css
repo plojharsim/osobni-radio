@@ -11,8 +11,9 @@
 .dbgx-title small { font-weight: 400; font-size: var(--fs-xs); color: var(--dim); margin-left: 8px; }
 .dbgx-x { width: 30px; height: 30px; border-radius: var(--r-sm); border: 0; background: none; color: var(--dim); cursor: pointer; font-size: 14px; }
 .dbgx-x:hover { background: var(--surface); color: var(--fg); }
-.dbgx-tabs { display: flex; gap: 2px; padding: 8px 12px 0; border-bottom: 1px solid var(--line); }
-.dbgx-tab { padding: 8px 12px; border: 0; background: none; color: var(--dim); font-size: var(--fs-sm); font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.dbgx-tabs { display: flex; gap: 2px; padding: 8px 12px 0; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+.dbgx-tabs::-webkit-scrollbar { display: none; }
+.dbgx-tab { white-space: nowrap; flex: none; padding: 8px 12px; border: 0; background: none; color: var(--dim); font-size: var(--fs-sm); font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .dbgx-tab:hover { color: var(--fg); }
 .dbgx-tab.on { color: var(--fg); border-bottom-color: var(--accent); }
 .dbgx-tab i { font-style: normal; margin-left: 5px; padding: 0 6px; border-radius: var(--r-pill); background: var(--surface-hi); font-size: 10px; }
@@ -42,4 +43,4 @@
 .dbgx-log i { font-style: normal; color: var(--dim); margin-right: 8px; }
 .dbgx-line { padding: 8px 0; border-bottom: 1px solid var(--line); }
 .dbgx-line small { display: block; color: var(--dim); font-size: var(--fs-xs); margin-top: 2px; }
-@media (max-width: 640px) { .dbgx { left: 8px; right: 8px; top: auto; bottom: 8px; height: 70vh; width: auto; } }
+@media (max-width: 640px) { .dbgx { left: 8px; right: 8px; top: auto; bottom: calc(8px + env(safe-area-inset-bottom)); height: 70vh; width: auto; } .dbgx-tab { padding: 8px 10px; } .dbgx-row > span:first-child { flex-basis: 110px; } }

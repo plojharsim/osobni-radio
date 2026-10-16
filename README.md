@@ -11,6 +11,7 @@ Mezi skladbami občas promluví **AI moderátor** (hlášky, zprávy, počasí).
 - **Texty písní** z [LRCLIB](https://lrclib.net) s karaoke zvýrazněním po slovech.
 - **ListenBrainz zpětně:** s tokenem odesílá poslechy (scrobble) a hodnocení „líbí / nelíbí“.
 - **AI moderátor:** text přes [OpenRouter](https://openrouter.ai) (zdarma dostupný model), hlas neurální (edge-tts). Hlášky, zprávy (ČT24 / BBC) a počasí ([Open-Meteo](https://open-meteo.com)), nastavitelná četnost 15–100 %.
+- **Mobil:** responzivní rozložení, přetahování po liště postupu prstem, ovládání ze zamčené obrazovky; lze přidat na plochu telefonu jako aplikaci (PWA).
 - **Debug menu** (klávesa `` ` ``).
 
 ## Rychlý start

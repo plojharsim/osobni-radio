@@ -12,6 +12,7 @@
 }
 * { box-sizing: border-box; margin: 0; }
 html { background: var(--bg); }
+html { -webkit-text-size-adjust: 100%; }
 body { min-height: 100vh; min-height: 100dvh; background: transparent; color: var(--fg); font: var(--fs-lg)/1.4 var(--font); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
 [hidden] { display: none !important; }
 
@@ -20,7 +21,7 @@ body { min-height: 100vh; min-height: 100dvh; background: transparent; color: va
 #bg.on { opacity: .6; }
 
 /* ---------- základní prvky ---------- */
-button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+button { touch-action: manipulation; font: inherit; color: inherit; background: none; border: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 svg.fill, .play svg { fill: currentColor; stroke: none; }
 .eyebrow, .upnext h2, dialog h3 { font-size: var(--fs-xs); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); }
@@ -42,11 +43,11 @@ svg.fill, .play svg { fill: currentColor; stroke: none; }
 .testbtn { margin-top: 14px; width: 100%; }
 
 /* ---------- rozložení ---------- */
-header { display: flex; justify-content: space-between; align-items: center; padding: max(16px, env(safe-area-inset-top)) 20px 0; max-width: 520px; margin: 0 auto; }
+header { display: flex; justify-content: space-between; align-items: center; padding: max(16px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) 0 max(20px, env(safe-area-inset-left)); max-width: 520px; margin: 0 auto; }
 .brand { font-size: var(--fs-md); font-weight: 650; letter-spacing: -.005em; text-shadow: var(--ts); }
 .brand small { font-size: var(--fs-xs); font-weight: 400; color: var(--dim); margin-left: 6px; letter-spacing: 0; }
 .hdr-actions { display: flex; gap: 4px; }
-main { max-width: 520px; margin: 0 auto; padding: 16px 20px 48px; }
+main { max-width: 520px; margin: 0 auto; padding: 16px 20px calc(48px + env(safe-area-inset-bottom)); }
 .left, .right { display: contents; }
 
 /* ---------- obálka ---------- */
@@ -168,4 +169,26 @@ body.idle { cursor: none; }
   .fs .cover { width: min(100%, 42vh); }
   .fs .right { max-height: none; }
 }
-@media (max-width: 460px) { .extras { flex-direction: column; align-items: stretch; } .vol { flex-basis: auto; } .chips { justify-content: flex-start; } }
+
+/* ---------- mobil ---------- */
+.no-volume .vol { display: none; }              /* iOS hlasitost webu neovládá (jen tlačítka telefonu) */
+.no-volume .extras { justify-content: flex-end; }
+@media (pointer: coarse) { .progress { height: 36px; touch-action: none; } .progress::before { height: 4px; } #bar { height: 4px; } }
+@media (max-width: 520px) {
+  main { padding-left: max(20px, env(safe-area-inset-left)); padding-right: max(20px, env(safe-area-inset-right)); padding-top: 8px; }
+  .cover { width: min(100%, 36vh); min-width: 160px; }
+  .meta { margin: 20px 0 14px; }
+  h1 { font-size: 22px; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.2; }
+  .controls { margin-top: 12px; }
+  .extras { gap: 12px; margin-top: 14px; }
+  .vol { flex: 1 1 auto; }
+  .lyrics { max-height: 48vh; }
+  .lyrics p { font-size: 20px; }
+  .upnext { margin-top: 28px; }
+  .upnext li button { padding: 14px 6px; }
+  dialog { width: calc(100vw - 24px); max-height: calc(100dvh - 24px); padding: 20px; border-radius: var(--r-lg); }
+  dialog input:not([type=checkbox]), dialog select { font-size: 16px; }   /* iOS jinak při zaostření přiblíží stránku */
+  .grid2 { grid-template-columns: 1fr; gap: 0; }
+  .row button { padding: 12px 18px; }
+}
+@media (max-width: 360px) { .brand small { display: none; } }

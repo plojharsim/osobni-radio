@@ -531,7 +531,7 @@ body{min-height:100dvh;display:grid;place-items:center;padding:20px;color:#f4f4f
 form{width:min(360px,100%);background:#131316;border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:28px}
 h1{font-size:18px;font-weight:650}h1 small{font-size:12px;font-weight:400;color:#adadb8;margin-left:6px}
 p{font-size:13px;color:#adadb8;margin-top:6px}
-input{display:block;width:100%;margin-top:20px;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.14);background:#0b0b0d;color:#f4f4f6;font:inherit;font-size:15px}
+input{display:block;width:100%;margin-top:20px;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.14);background:#0b0b0d;color:#f4f4f6;font:inherit;font-size:16px}
 input:focus{outline:2px solid #b794f6;outline-offset:-1px}
 button{width:100%;margin-top:14px;padding:12px;border-radius:12px;border:0;background:#f4f4f6;color:#0b0b0d;font:inherit;font-size:15px;font-weight:600;cursor:pointer}
 button:disabled{opacity:.6}#err{min-height:20px;margin-top:12px;font-size:13px;color:#fca5a5}

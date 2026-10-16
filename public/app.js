@@ -178,6 +178,11 @@ async function feedback(kind) {
   if (kind === 'hate' && on) playNext(true);
 }
 
+// Mobil: po zamknutí / návratu do aplikace může být AudioContext pozastavený → zvuk by oněměl
+const resumeCtx = () => { if (ctx && ctx.state !== 'running' && !audio.paused) ctx.resume().catch(() => {}); };
+document.addEventListener('visibilitychange', resumeCtx);
+audio.addEventListener('playing', resumeCtx);
+
 /* ---------- hlasitost ---------- */
 const vol = $('volume');
 function setVolume(v, save = true) {
@@ -186,6 +191,8 @@ function setVolume(v, save = true) {
 }
 vol.addEventListener('input', () => setVolume(Number(vol.value)));
 vol.addEventListener('wheel', (e) => { e.preventDefault(); setVolume(Math.min(1, Math.max(0, audio.volume - Math.sign(e.deltaY) * 0.05))); }, { passive: false });
+audio.volume = 0.5;
+if (audio.volume !== 0.5) document.body.classList.add('no-volume');   // iOS: hlasitost audio prvku nelze měnit
 try { setVolume(Number(localStorage.getItem('volume') ?? 1), false); } catch { setVolume(1, false); }
 
 /* ---------- texty písní ---------- */
@@ -281,10 +288,14 @@ audio.addEventListener('timeupdate', () => {
   }
   if ('mediaSession' in navigator && d) try { navigator.mediaSession.setPositionState({ duration: d, position: audio.currentTime, playbackRate: 1 }); } catch {}
 });
-$('progress').addEventListener('click', (e) => {
-  const r = e.currentTarget.getBoundingClientRect();
-  if (audio.duration) audio.currentTime = ((e.clientX - r.left) / r.width) * audio.duration;
-});
+{
+  // přetahování po liště postupu (myš i dotyk)
+  const bar = $('progress');
+  const seek = (e) => { const r = bar.getBoundingClientRect(); if (audio.duration) audio.currentTime = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) * audio.duration; };
+  bar.addEventListener('pointerdown', (e) => { bar.setPointerCapture(e.pointerId); seek(e); bar.onpointermove = seek; });
+  const stop = () => { bar.onpointermove = null; };
+  bar.addEventListener('pointerup', stop); bar.addEventListener('pointercancel', stop);
+}
 
 /* ---------- ovládání ---------- */
 $('play').onclick = toggle;
@@ -425,10 +436,10 @@ const dlg = $('dlg');
 async function openSettings() {
   const s = await api('/api/state');
   $('fUser').value = s.username; $('fToken').value = '';
-  $('fToken').placeholder = s.hasToken ? 'token uložen – nechat prázdné = beze změny' : 'volitelné';
+  $('fToken').placeholder = s.hasToken ? 'uloženo (prázdné = beze změny)' : 'volitelné';
   const d = s.dj; state.dj.cfg = d;
   $('djOn').checked = d.enabled; $('djKey').value = '';
-  $('djKey').placeholder = d.hasKey ? 'klíč uložen – nechat prázdné = beze změny' : 'sk-or-…';
+  $('djKey').placeholder = d.hasKey ? 'uloženo (prázdné = beze změny)' : 'sk-or-…';
   $('djLang').value = d.lang; $('djFreq').value = d.freq === 'rare' ? 'few' : d.freq;
   $('djNews').checked = d.news; $('djWeather').checked = d.weather; $('djCity').value = d.city || '';
   if (![...$('djVoice').options].some((o) => o.value === d.voice)) $('djVoice').add(new Option(d.voice, d.voice));
