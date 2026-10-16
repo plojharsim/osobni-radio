@@ -357,9 +357,35 @@ async function directUrl(videoId) {
   return url;
 }
 
+// Hledání na YouTube přímo z Node (rychlé, bez spouštění yt-dlp); při chybě se použije yt-dlp
+async function innertubeSearch(q) {
+  const r = await fetch('https://www.youtube.com/youtubei/v1/search?prettyPrint=false', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36' },
+    body: JSON.stringify({ context: { client: { clientName: 'WEB', clientVersion: '2.20250101.00.00', hl: 'en', gl: 'US' } }, query: q }),
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!r.ok) throw new Error(`search ${r.status}`);
+  const d = await r.json(), out = [];
+  for (const sec of d?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents || []) {
+    for (const it of sec.itemSectionRenderer?.contents || []) {
+      const v = it.videoRenderer; if (!v?.videoId) continue;
+      const dur = (v.lengthText?.simpleText || '').split(':').reduce((n, x) => n * 60 + Number(x), 0);
+      const channel = v.ownerText?.runs?.[0]?.text || '';
+      out.push({ id: v.videoId, title: v.title?.runs?.map((x) => x.text).join('') || '', duration: dur, channel, uploader: channel });
+    }
+  }
+  if (!out.length) throw new Error('prázdné výsledky');
+  return out.slice(0, 10);
+}
+
 async function searchBest(query, artist, title) {
-  const out = await ytdlp(['--flat-playlist', '--no-warnings', '-j', query]);
-  const entries = out.trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  let entries;
+  try { entries = await innertubeSearch(query.replace(/^ytsearch\d+:/, '')); }
+  catch (e) {
+    console.warn('[search] přímé hledání selhalo, používám yt-dlp:', e.message);
+    const out = await ytdlp(['--flat-playlist', '--no-warnings', '-j', query]);
+    entries = out.trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  }
   return entries.map((e) => ({ e, s: score(e, artist, title) })).filter((x) => x.s >= 0).sort((a, b) => b.s - a.s)[0];
 }
 
@@ -367,14 +393,18 @@ function resolveTrack(artist, title) {
   const key = trackKey(artist, title);
   if (!resolveCache.has(key)) {
     const p = (async () => {
+      const t0 = Date.now();
       let found = resolved.get()[key];
+      const cachedHit = !!found;
       if (!found) {
         const best = (await searchBest(`ytsearch6:${artist} - ${title}`, artist, title)) || (await searchBest(`ytsearch8:${artist} ${title} audio`, artist, title));
         if (!best) throw new Error('na YouTube se nenašla vhodná verze skladby');
         found = { videoId: best.e.id, duration: best.e.duration };
         const r = resolved.get(); r[key] = found; const keys = Object.keys(r); if (keys.length > 3000) delete r[keys[0]]; resolved.save();
       }
+      const t1 = Date.now();
       await directUrl(found.videoId);
+      console.log(`[resolve] ${artist} – ${title}: hledání ${cachedHit ? 'z paměti' : `${t1 - t0} ms`}, adresa zvuku ${Date.now() - t1} ms`);
       return { videoId: found.videoId, duration: found.duration, thumb: `https://i.ytimg.com/vi/${found.videoId}/hqdefault.jpg` };
     })();
     p.catch(() => resolveCache.delete(key));

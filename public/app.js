@@ -60,7 +60,7 @@ function renderQueue() {
 const resolve = (t) => (t.resolving ||= (() => {
   return api(`/api/resolve?artist=${encodeURIComponent(t.artist)}&title=${encodeURIComponent(t.title)}`).then((r) => {
     return Object.assign(t, r);
-  });
+  }).catch((e) => { t.resolving = null; throw e; });   // po chybě (třeba blokace) jde skladbu zkusit znovu
 })());
 const measure = (t) => (t.measuring ||= resolve(t).then(() => api(`/api/loudness?id=${t.videoId}`)).then((r) => (t.lufs = r.lufs)).catch(() => null));
 
@@ -82,7 +82,8 @@ function applyGain(t) {
   const db = typeof t.lufs === 'number' ? Math.max(-12, Math.min(9, TARGET_LUFS - t.lufs)) : -3;
   gain.gain.setTargetAtTime(Math.pow(10, db / 20), ctx.currentTime, 0.4);
 }
-function prefetch() { const t = state.queue[0]; if (t) measure(t); }
+// předem se hledá a získává adresa zvuku u prvních dvou skladeb ve frontě (hlasitost se měří u první)
+function prefetch() { state.queue.slice(0, 2).forEach((t, i) => (i === 0 ? measure(t) : resolve(t).catch(() => {}))); }
 
 /* ---------- přehrávání ---------- */
 async function playNext(manual = false) {
