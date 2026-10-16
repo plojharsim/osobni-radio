@@ -324,6 +324,7 @@ const TTS_DIR = path.join(DATA, 'tts');
 fs.mkdirSync(TTS_DIR, { recursive: true });
 const DEFAULT_VOICE = 'en-US-AvaMultilingualNeural';
 const DJ_MODEL = 'dots-studio/dots-3-note-preview:free';   // pevně daný model, nelze měnit
+const DJ_FALLBACK_MODEL = 'openrouter/free';              // záloha, když hlavní model selže nebo neodpoví
 const DJ_DEFAULTS = { enabled: true, lang: 'cs', voice: DEFAULT_VOICE, freq: 'normal', news: true, weather: true };
 const djCfg = () => ({
   ...DJ_DEFAULTS, ...(settings.get().dj || {}), model: DJ_MODEL,
@@ -331,9 +332,9 @@ const djCfg = () => ({
 });
 const djFreq = (f) => (f === 'rare' ? 'few' : f);   // starší hodnota z dřívějšího nastavení
 
-async function chat(model, messages, key) {
+async function chat(model, messages, key, timeoutMs = 45000) {
   const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST', signal: AbortSignal.timeout(75000),
+    method: 'POST', signal: AbortSignal.timeout(timeoutMs),
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'HTTP-Referer': 'http://localhost', 'X-Title': 'Personal Radio' },
     body: JSON.stringify({ model, messages, temperature: 0.9, max_tokens: 600 }),
   });
@@ -415,13 +416,15 @@ async function djScript({ prev, next, when, kind = 'chat' }, c) {
   }
   const msgs = [{ role: 'system', content: system }, { role: 'user', content: user }];
   let lastErr;
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const model = c.model;
+  for (const model of [c.model, DJ_FALLBACK_MODEL]) {
     try {
       const text = cleanSpeech(await chat(model, msgs, c.key));
       if (text.length > 5) return { text, model };
       lastErr = new Error('prázdná odpověď');
-    } catch (e) { lastErr = e; console.warn('[dj]', model, e.message); if (/401|key|auth/i.test(e.message)) break; await new Promise((r) => setTimeout(r, 1500)); }
+    } catch (e) {
+      lastErr = e; console.warn('[dj]', model, e.message);
+      if (/\b401\b|api key|auth/i.test(e.message)) break;   // špatný klíč nespraví žádný model
+    }
   }
   throw lastErr;
 }
@@ -515,8 +518,10 @@ const safeEq = (a, b) => { const x = Buffer.from(String(a)), y = Buffer.from(Str
 const cookieOf = (req, name) => (req.headers.cookie || '').split(/;\s*/).map((c) => c.split('=')).find(([k]) => k === name)?.[1];
 const isHttps = (req) => req.headers['x-forwarded-proto'] === 'https' || /"scheme":"https"/.test(req.headers['cf-visitor'] || '');
 
+const PUBLIC_ASSETS = new Set(['/manifest.webmanifest', '/sw.js', '/icon-192.png', '/icon-512.png', '/icon-maskable.png', '/apple-touch-icon.png']);   // bez citlivých dat; nutné pro instalaci aplikace
 function authorized(req) {
   if (!APP_PASSWORD) return true;
+  if (PUBLIC_ASSETS.has(new URL(req.url, 'http://x').pathname)) return true;
   if (safeEq(cookieOf(req, 'radio_auth') || '', SESSION)) return true;
   const m = (req.headers.authorization || '').match(/^Basic (.+)$/);   // pro skripty (curl -u x:heslo)
   return !!m && safeEq(Buffer.from(m[1], 'base64').toString().split(':').slice(1).join(':'), APP_PASSWORD);

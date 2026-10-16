@@ -488,3 +488,5 @@ window.radio = {
   get gain() { return gain; },
   dj: { chance: djChance, gap: djGap, freq: djFreq, schedule: scheduleDj, plan: planDj, clear: clearDjDecisions, info: updateDjInfo },
 };
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
