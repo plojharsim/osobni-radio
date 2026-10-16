@@ -35,6 +35,36 @@
   let tab = 'over', logFilter = 'all', server = null, serverAt = 0, serverErr = null, ping = null, timer = null;
   try { tab = localStorage.getItem('dbgx-tab') || tab; } catch {}
 
+  /* ---------- diagnostika instalace aplikace (PWA) ---------- */
+  let pwa = null;   // [[popisek, hodnota, třída]]
+  async function pwaCheck() {
+    const out = [], add = (k, v, c = '') => out.push([k, v, c]);
+    add('HTTPS', location.protocol === 'https:' || location.hostname === 'localhost' ? 'ano' : 'NE – instalace vyžaduje HTTPS', location.protocol === 'https:' || location.hostname === 'localhost' ? 'ok' : 'bad');
+    add('Režim zobrazení', matchMedia('(display-mode: standalone)').matches ? 'standalone (běží jako aplikace)' : 'v prohlížeči (browser)');
+    const link = document.querySelector('link[rel=manifest]');
+    add('<link rel=manifest>', link ? link.getAttribute('href') : 'CHYBÍ', link ? 'ok' : 'bad');
+    try {
+      const r = await fetch(link?.href || 'manifest.webmanifest', { credentials: 'omit', cache: 'no-store' });
+      const ct = r.headers.get('content-type') || '';
+      add('Manifest (bez cookies)', `${r.status} ${ct}`, r.ok && /json/.test(ct) ? 'ok' : 'bad');
+      const m = await r.json();
+      add('display / start_url', `${m.display} / ${m.start_url}`, ['standalone', 'fullscreen', 'minimal-ui'].includes(m.display) ? 'ok' : 'bad');
+      add('name / short_name', `${m.name || '–'} / ${m.short_name || '–'}`, m.name ? 'ok' : 'bad');
+      for (const ic of m.icons || []) {
+        const ir = await fetch(new URL(ic.src, r.url), { credentials: 'omit' }).catch(() => null);
+        add(`ikona ${ic.sizes} ${ic.purpose || ''}`, ir ? `${ir.status} ${ir.headers.get('content-type')}` : 'nedostupná', ir?.ok && /png/.test(ir.headers.get('content-type') || '') ? 'ok' : 'bad');
+      }
+    } catch (e) { add('Manifest', `chyba: ${e.message}`, 'bad'); }
+    try {
+      const sw = await navigator.serviceWorker?.getRegistration();
+      add('Service worker', sw ? `${sw.active ? 'aktivní' : sw.installing ? 'instaluje se' : 'čeká'} (scope ${sw.scope})` : 'není registrovaný', sw?.active ? 'ok' : 'warn');
+      const sr = await fetch('sw.js', { credentials: 'omit', cache: 'no-store' });
+      add('sw.js (bez cookies)', `${sr.status} ${sr.headers.get('content-type')}`, sr.ok && /javascript/.test(sr.headers.get('content-type') || '') ? 'ok' : 'bad');
+    } catch (e) { add('Service worker', `chyba: ${e.message}`, 'bad'); }
+    add('beforeinstallprompt', 'beforeinstallprompt' in window ? 'podporováno (Chrome)' : 'nepodporováno (Firefox/Safari – instalace přes menu prohlížeče)');
+    pwa = out; if (!box.hidden) render();
+  }
+
   /* ---------- záložky ---------- */
   function viewOver() {
     const t = state.current, g = R.gain, a = audio;
@@ -54,6 +84,7 @@
     h += '<h5>Prostředí</h5>';
     h += row('Okno', `${innerWidth}×${innerHeight} @${devicePixelRatio}×`) + row('Fullscreen', document.fullscreenElement ? 'ano' : 'ne') + row('Prohlížeč', navigator.userAgent.replace(/^Mozilla\/5.0 /, '').slice(0, 90)) +
       row('Ping serveru', ping == null ? '–' : `${ping} ms`) + `<div class="dbgx-acts"><button data-a="ping">Změřit ping</button><button data-a="end">Skočit na konec skladby</button></div>`;
+    h += '<h5>Instalace jako aplikace (PWA)</h5>' + (pwa ? pwa.map(([k, v, c]) => row(k, v, c)).join('') : '<div class="dim">kontroluji…</div>') + '<div class="dbgx-acts"><button data-a="pwa">Zkontrolovat znovu</button></div>';
     return h;
   }
 
@@ -130,7 +161,7 @@
     clearInterval(timer);
     try { localStorage.setItem('dbgx-open', on ? '1' : '0'); } catch {}
     if (!on) return;
-    poll().then(render); render();
+    poll().then(render); render(); if (!pwa) pwaCheck();
     timer = setInterval(() => { if (Date.now() - serverAt > 3000) poll(); render(); }, 1000);
   }
 
@@ -141,6 +172,7 @@
     if (tb) { tab = tb.dataset.tab; try { localStorage.setItem('dbgx-tab', tab); } catch {} return render(); }
     if (!ac) return;
     const t = state.current, c = state.dj.cfg;
+    if (ac === 'pwa') { pwa = null; pwaCheck(); return render(); }
     if (ac === 'ping') { const t0 = performance.now(); try { await fetch('/api/health'); ping = Math.round(performance.now() - t0); } catch { ping = null; } return render(); }
     if (ac === 'end') { if (audio.duration) audio.currentTime = Math.max(0, audio.duration - 4); return; }
     if (ac.startsWith('filter:')) { logFilter = ac.slice(7); return render(); }

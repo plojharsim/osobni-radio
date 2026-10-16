@@ -722,7 +722,7 @@ async function handle(req, res) {
   // statické soubory
   let file = path.normalize(path.join(PUBLIC, p === '/' ? 'index.html' : p));
   if (!file.startsWith(PUBLIC) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); return res.end('Nenalezeno'); }
-  res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache', 'CDN-Cache-Control': 'no-store', 'Cloudflare-CDN-Cache-Control': 'no-store' });   // ani CDN (Cloudflare) nesmí držet starou verzi
+  res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream', 'Content-Length': fs.statSync(file).size, 'Cache-Control': 'no-cache', 'CDN-Cache-Control': 'no-store', 'Cloudflare-CDN-Cache-Control': 'no-store' });   // ani CDN (Cloudflare) nesmí držet starou verzi
   fs.createReadStream(file).pipe(res);
 }
 

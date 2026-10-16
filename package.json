@@ -1,6 +1,6 @@
 {
   "name": "osobni-radio",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Osobní rádio: hudba podle tvého vkusu z ListenBrainz, zvuk přes yt-dlp, AI moderátor mezi skladbami",
   "type": "module",
   "private": true,
