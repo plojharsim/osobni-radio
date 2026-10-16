@@ -293,7 +293,10 @@ function baseArgs() {
       a.push('--js-runtimes', `node:${process.execPath}`);
       if (process.env.YTDLP_REMOTE_EJS !== '0') a.push('--remote-components', 'ejs:github');
     }
-    if (process.env.YTDLP_ARGS) a.push(...process.env.YTDLP_ARGS.split(/\s+/).filter(Boolean));
+    const extra = (process.env.YTDLP_ARGS || '').split(/\s+/).filter(Boolean);
+    // klient „web_embedded“ ke standardním: ověřeno, že funguje i z IP, kterou YouTube blokuje bot kontrolou, a bez přihlášení
+    if (process.env.YTDLP_EMBEDDED !== '0' && !extra.some((x) => x.includes('player_client'))) a.push('--extractor-args', 'youtube:player_client=default,web_embedded');
+    a.push(...extra);
     return a;
   })());
 }
