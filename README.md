@@ -5,6 +5,7 @@ Výběr skladeb bere z **[ListenBrainz](https://listenbrainz.org)** (doporučen�
 Mezi skladbami občas promluví **AI moderátor** (hlášky, zprávy, počasí). Bez npm závislostí – stačí Node.js ≥ 20, yt-dlp a ffmpeg.
 
 ## Funkce
+- **Nálady:** výběr hudby podle nálady (nabuzení, relax, veselé, smutné, na probuzení, ráno, odpoledne, večer, noc, soustředění, párty, sport) nebo automaticky podle denní doby. Vlastní skladby se filtrují podle tagů z ListenBrainz, zbytek doplňuje tag rádio.
 - **Hudba podle vkusu:** mix doporučení z ListenBrainz, tvých nejposlouchanějších skladeb, podobných interpretů a skladeb s ♥. Ochrana proti opakování skladeb i interpretů.
 - **Přehrávač:** minimalistický, s rozostřeným pozadím z obálky, klávesovými zkratkami, ovládáním ze zamčené obrazovky a režimem celé obrazovky.
 - **Normalizace hlasitosti** (ffmpeg + Web Audio) a posuvník hlasitosti.

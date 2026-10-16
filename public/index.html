@@ -68,6 +68,7 @@
       <input id="volume" type="range" min="0" max="1" step="0.01" value="1" aria-label="Hlasitost">
     </label>
     <div class="chips">
+      <button id="moodBtn" class="chip" title="Vybrat náladu hudby">Nálada: Vše</button>
       <button id="lyricsBtn" class="chip" disabled aria-pressed="false">Text písně</button>
     </div>
   </div>
@@ -134,6 +135,13 @@
       <button type="submit" class="primary">Uložit</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="moodDlg">
+  <h2>Nálada hudby</h2>
+  <p class="hint">Vyber, jakou hudbu chceš slyšet. „Vše“ je běžné rádio podle tvého vkusu. U nálad se přednostně vybírají tvoje skladby, které k ní pasují (podle tagů v ListenBrainz), a doplňují se podobné z tag rádia.</p>
+  <div id="moodGrid" class="moodgrid"></div>
+  <div class="row"><button type="button" id="moodClose" class="ghost">Zavřít</button></div>
 </dialog>
 
 <audio id="audio" preload="auto"></audio>

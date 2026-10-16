@@ -142,6 +142,10 @@ dialog label.check input { width: 18px; height: 18px; margin: 0; accent-color: v
 .opt { opacity: .7; }
 .row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }
 
+.moodgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
+.moodgrid .chip { padding: 11px 12px; font-size: var(--fs-md); text-align: center; }
+.moodgrid .chip.wide { grid-column: 1 / -1; }
+
 /* ---------- celá obrazovka ---------- */
 #fsBtn .i-exit, .fs #fsBtn .i-enter { display: none; }
 .fs #fsBtn .i-exit { display: block; }
@@ -220,8 +224,9 @@ body.idle { cursor: none; }
   .meta { margin: 20px 0 14px; }
   h1 { font-size: 22px; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.2; }
   .controls { margin-top: 12px; }
-  .extras { gap: 12px; margin-top: 14px; }
-  .vol { flex: 1 1 auto; }
+  .extras { gap: 10px 12px; margin-top: 14px; flex-wrap: wrap; }
+  .vol { flex: 1 1 100%; }
+  .chips { flex: 1 1 100%; justify-content: flex-start; }
   .lyrics { max-height: 48vh; }
   .lyrics p { font-size: 20px; }
   .upnext { margin-top: 28px; }

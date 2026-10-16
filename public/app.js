@@ -8,6 +8,13 @@ const api = async (path, opts) => {
   return data;
 };
 
+const MOODS = [['all', 'Vše'], ['auto', 'Podle denní doby'], ['energize', 'Nabuzení'], ['relax', 'Relax'], ['happy', 'Veselé'], ['sad', 'Smutné'], ['wake', 'Na probuzení'],
+  ['morning', 'Ráno'], ['afternoon', 'Odpoledne'], ['evening', 'Večer'], ['night', 'Noc'], ['focus', 'Soustředění'], ['party', 'Párty'], ['workout', 'Sport']];
+let mood = 'all';
+try { const m = localStorage.getItem('mood'); if (MOODS.some(([id]) => id === m)) mood = m; } catch {}
+const moodLabel = (id) => MOODS.find(([k]) => k === id)?.[1] || 'Vše';
+function dayPart() { const h = new Date().getHours(); return h >= 5 && h < 10 ? 'morning' : h < 17 && h >= 10 ? 'afternoon' : h >= 17 && h < 22 ? 'evening' : 'night'; }
+const resolvedMood = () => (mood === 'all' ? '' : mood === 'auto' ? dayPart() : mood);   // co se posílá serveru
 const state = { dj: { cfg: null, since: 0, plan: null }, djActive: false, queue: [], current: null, started: false, listenSent: false, fb: { love: new Set(), hate: new Set() }, fails: 0 };
 
 const fmt = (s) => (isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '0:00');
@@ -16,21 +23,23 @@ function message(text, info = false) {
 }
 
 /* ---------- fronta ---------- */
-let fetching = null;
+let fetching = null, moodGen = 0;   // moodGen: výsledky dotazu na starou náladu se zahodí
 function refill() {
   if (fetching) return fetching;            // běžící dotaz sdílíme, ať na něj playNext počká
   if (state.queue.length >= 4) return Promise.resolve();
+  const gen = moodGen;
   fetching = (async () => {
     try {
       const exclude = [state.current, ...state.queue].filter(Boolean).map((t) => t.id).join('\n');
-      const { tracks } = await api(`/api/next?n=6&exclude=${encodeURIComponent(exclude)}`);
+      const { tracks } = await api(`/api/next?n=6&mood=${resolvedMood()}&exclude=${encodeURIComponent(exclude)}`);
+      if (gen !== moodGen) return;
       const have = new Set([state.current?.id, ...state.queue.map((t) => t.id)]);
       state.queue.push(...tracks.filter((t) => !have.has(t.id)));
       renderQueue(); prefetch(); scheduleDj(); updateDjInfo();
     } catch (e) {
       if (e.data?.error === 'setup') openSettings();
       else if (!state.current) message(e.message);
-    } finally { fetching = null; }
+    } finally { if (gen === moodGen) fetching = null; }
   })();
   return fetching;
 }
@@ -346,7 +355,7 @@ function planDj() {
   const when = new Date().toLocaleString('cs-CZ', { weekday: 'long', hour: '2-digit', minute: '2-digit' });
   const pick = (t) => ({ artist: t.artist, title: t.title, source: t.source });
   const plan = state.dj.plan = { forId: next.id, status: 'generating' };
-  plan.clip = api('/api/dj', { prev: pick(cur), next: pick(next), when, kind: cur.dj.kind })
+  plan.clip = api('/api/dj', { prev: pick(cur), next: pick(next), when, kind: cur.dj.kind, mood: resolvedMood() ? moodLabel(resolvedMood()) : '' })
     .then(async (r) => {
       const url = URL.createObjectURL(await (await fetch(`/api/dj/audio/${r.id}.mp3`)).blob());
       plan.status = 'ready'; plan.kind = r.kind; updateDjInfo();
@@ -463,6 +472,37 @@ $('form').addEventListener('submit', async () => {
   state.queue = []; message(saved.cityError || '');
   if (state.started) playNext(true); else init();
 });
+
+/* ---------- nálada hudby ---------- */
+function updateMoodBtn() {
+  $('moodBtn').textContent = `Nálada: ${mood === 'auto' ? `${moodLabel(dayPart())} (auto)` : moodLabel(mood)}`;
+  $('moodBtn').setAttribute('aria-pressed', mood !== 'all');
+}
+function renderMoodGrid() {
+  $('moodGrid').innerHTML = '';
+  for (const [id, label] of MOODS) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = `chip${id === 'all' || id === 'auto' ? ' wide' : ''}`; b.textContent = label;
+    b.setAttribute('aria-pressed', id === mood);
+    b.onclick = () => setMood(id);
+    $('moodGrid').append(b);
+  }
+}
+function setMood(id) {
+  $('moodDlg').close();
+  if (id === mood) return;
+  mood = id; try { localStorage.setItem('mood', id); } catch {}
+  updateMoodBtn();
+  moodGen++; fetching = null;
+  state.queue = []; state.dj.plan = null; clearDjDecisions(); renderQueue(); updateDjInfo();
+  initAudioGraph();
+  if (state.started) { if (state.djActive) endDj(); else playNext(true); }   // nová nálada se projeví hned
+  else refill();
+}
+$('moodBtn').onclick = () => { renderMoodGrid(); $('moodDlg').showModal(); };
+$('moodClose').onclick = () => $('moodDlg').close();
+$('moodDlg').addEventListener('click', (e) => { if (e.target === $('moodDlg')) $('moodDlg').close(); });
+updateMoodBtn();
 
 /* ---------- start ---------- */
 async function init() {

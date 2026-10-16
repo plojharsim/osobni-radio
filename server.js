@@ -150,7 +150,80 @@ const songKey = (id) => { const [a = '', ...t] = id.split('|'); return `${primar
 const artistOf = (id) => primaryArtist(id.split('|')[0]);
 const ARTIST_COOLDOWN = 12;   // tolik posledních skladeb se nesmí opakovat interpret
 
-async function nextTracks(n, exclude = []) {
+/* ---------- nálady: filtr vlastních skladeb podle tagů + tag rádio ListenBrainz ---------- */
+const MOODS = {
+  energize:  { label: 'Nabuzení',    tags: ['energetic', 'upbeat', 'high energy', 'dance', 'edm', 'electronic', 'house', 'rock', 'hard rock', 'drum and bass', 'techno'] },
+  relax:     { label: 'Relax',       tags: ['chill', 'relaxing', 'ambient', 'downtempo', 'calm', 'chillout', 'lounge', 'acoustic', 'instrumental'] },
+  happy:     { label: 'Veselé',      tags: ['happy', 'feel good', 'upbeat', 'pop', 'funk', 'disco', 'summer', 'party'] },
+  sad:       { label: 'Smutné',      tags: ['sad', 'melancholic', 'melancholy', 'emotional', 'ballad', 'singer-songwriter', 'heartbreak', 'slowcore'] },
+  wake:      { label: 'Na probuzení', tags: ['uplifting', 'feel good', 'acoustic', 'indie pop', 'folk pop', 'soft rock', 'easy listening', 'happy'], avoid: ['metal', 'hard rock', 'dark', 'techno', 'drum and bass', 'sad', 'doom'] },
+  morning:   { label: 'Ráno',        tags: ['acoustic', 'folk', 'indie folk', 'soft', 'chillout', 'jazz', 'bossa nova', 'easy listening'] },
+  afternoon: { label: 'Odpoledne',   tags: ['indie', 'indie pop', 'pop', 'pop rock', 'alternative', 'easy listening', 'soft rock'] },
+  evening:   { label: 'Večer',       tags: ['mellow', 'smooth', 'jazz', 'soul', 'chillout', 'lounge', 'downtempo', 'acoustic'] },
+  night:     { label: 'Noc',         tags: ['night', 'ambient', 'downtempo', 'trip hop', 'dark', 'electronica', 'atmospheric', 'deep house'] },
+  focus:     { label: 'Soustředění', tags: ['instrumental', 'ambient', 'post-rock', 'classical', 'lo-fi', 'minimal', 'piano'], avoid: ['hip hop', 'rap', 'pop', 'dance', 'metal', 'punk', 'party'] },
+  party:     { label: 'Párty',       tags: ['dance', 'party', 'club', 'house', 'hip hop', 'disco', 'edm', 'pop'] },
+  workout:   { label: 'Sport',       tags: ['workout', 'energetic', 'hard rock', 'metal', 'hip hop', 'drum and bass', 'electronic', 'rock'] },
+};
+const tagStore = new Map();   // recording MBID -> Map(tag -> počet hlasů); tagy interpreta/alba jen s aspoň 2 hlasy (méně je šum)
+async function fetchTags(mbids, token) {
+  const need = [...new Set(mbids.filter((id) => id && !tagStore.has(id)))];
+  const parts = []; for (let i = 0; i < need.length; i += 50) parts.push(need.slice(i, i + 50));
+  await Promise.all(parts.map(async (part) => {
+    try {
+      const meta = await lb(`${LB}/1/metadata/recording/?recording_mbids=${part.join(',')}&inc=tag`, { token });
+      for (const id of part) {
+        const map = new Map(), t = meta?.[id]?.tag || {};
+        for (const k of ['recording', 'artist', 'release_group']) for (const x of t[k] || []) {
+          const c = x.count || 1;
+          if (x.tag && (k === 'recording' || c >= 2)) map.set(x.tag.toLowerCase(), Math.max(map.get(x.tag.toLowerCase()) || 0, c));
+        }
+        tagStore.set(id, map);
+      }
+    } catch (e) { console.warn('[tags]', e.message); }
+  }));
+  if (tagStore.size > 6000) tagStore.clear();
+}
+// skóre: součet hlasů (max 5) u tagů nálady; skladby s tagy „proti“ náladě (aspoň 3 hlasy) se vyřadí
+const hasAvoid = (map, m) => !!map && (m.avoid || []).some((a) => (map.get(a) || 0) >= 3);
+function tagScore(map, m) {
+  if (!map || hasAvoid(map, m)) return 0;
+  let n = 0;
+  for (const mt of m.tags) {
+    let best = 0;
+    for (const [t, c] of map) if (t === mt || (mt.length >= 5 && t.includes(mt))) best = Math.max(best, c);
+    n += Math.min(best, 5);
+  }
+  return n;
+}
+
+// vlastní skladby (doporučení, oblíbené, ♥), které k náladě pasují podle tagů
+async function moodPersonal(username, m, loved) {
+  const { token } = cfg();
+  const [rec, fav] = await Promise.all([recommended(username), favourites(username)]);
+  const all = new Map(); for (const t of [...rec, ...fav, ...loved]) if (t.mbid && !all.has(t.id)) all.set(t.id, t);
+  await fetchTags([...all.values()].map((t) => t.mbid), token);
+  return [...all.values()].map((t) => ({ t, sc: tagScore(tagStore.get(t.mbid), m) })).filter((x) => x.sc >= 3)
+    .map((x) => ({ ...x, k: Math.random() * x.sc })).sort((a, b) => a.k - b.k).map((x) => ({ ...x.t, source: `nálada: ${m.label} (tvůj vkus)` }));
+}
+// objevování: tag rádio ListenBrainz (několik náhodných tagů nálady)
+async function moodRadio(m) {
+  const { token } = cfg();
+  const prompt = `tag:(${shuffle(m.tags).slice(0, 3).join(',')})::or`, mode = pick(['easy', 'medium']);
+  return cached(`mr:${prompt}:${mode}`, 10 * 60e3, async () => {
+    const r = await lb(`${LB}/1/explore/lb-radio?prompt=${encodeURIComponent(prompt)}&mode=${mode}`, { token });
+    const tracks = (r?.payload?.jspf?.playlist?.track || []).map((x) => {
+      const mbid = (x.identifier?.[0] || '').match(/recording\/([0-9a-f-]{36})/)?.[1];
+      const rel = JSON.stringify(x.extension || {}).match(/release\/([0-9a-f-]{36})/)?.[1];
+      return x.creator && x.title ? mkTrack(x.creator, x.title, mbid, rel, `nálada: ${m.label}`) : null;
+    }).filter(Boolean);
+    // vyřaď skladby, které k náladě zjevně nepasují (mají silné opačné tagy)
+    await fetchTags(tracks.map((t) => t.mbid), token);
+    return tracks.filter((t) => !t.mbid || !hasAvoid(tagStore.get(t.mbid), m));
+  });
+}
+
+async function nextTracks(n, exclude = [], mood = '') {
   const { username } = cfg();
   const hist = history.get();
   const blockedSongs = new Set([...hist, ...exclude].map(songKey));
@@ -167,9 +240,27 @@ async function nextTracks(n, exclude = []) {
     accept(t);
   };
 
+  const lovedAll = love.map((x) => mkTrack(x.artist, x.title, x.mbid, null, 'tvoje ♥'));
+  const m = MOODS[mood];
+  if (m) {
+    // režim nálady: část z vlastních skladeb, které k náladě pasují, zbytek z tag rádia
+    const personal = await moodPersonal(username, m, lovedAll);
+    const radio = shuffle(await moodRadio(m));
+    const pPersonal = personal.length >= 8 ? 0.6 : personal.length >= 3 ? 0.35 : 0.1;
+    for (let guard = 0; out.length < n && guard < n * 12 && (personal.length || radio.length); guard++) {
+      add(Math.random() < pPersonal && personal.length ? personal.shift() : radio.length ? radio.pop() : personal.shift());
+    }
+    for (const t of [...personal, ...radio]) add(t);
+    for (const t of deferred) {
+      const k = songKey(t.id);
+      if (out.length < n && !seen.has(k) && !out.some((o) => artistOf(o.id) === artistOf(t.id))) { seen.add(k); out.push(t); }
+    }
+    return out;
+  }
+
   const [rec, fav] = await Promise.all([recommended(username), favourites(username)]);
   const recPool = shuffle(rec), favPool = shuffle(fav);
-  const lovedPool = shuffle(love.map((x) => mkTrack(x.artist, x.title, x.mbid, null, 'tvoje ♥')));
+  const lovedPool = shuffle(lovedAll);
 
   for (let guard = 0; out.length < n && guard < n * 10; guard++) {
     const r = Math.random();
@@ -390,10 +481,13 @@ const SOURCE_HINT = (src = '') =>
   src.startsWith('podobné:') ? `interpret podobný tomu, co posluchač rád poslouchá (${src.slice(8).trim()})`
   : src === 'doporučení' ? 'doporučení podle jeho hudebního vkusu'
   : src === 'oblíbené' ? 'jedna z jeho nejposlouchanějších skladeb'
-  : src.includes('♥') ? 'skladba, kterou si posluchač označil jako oblíbenou' : '';
+  : src.includes('♥') ? 'skladba, kterou si posluchač označil jako oblíbenou'
+  : src.startsWith('nálada:') ? `skladba vybraná podle zvolené nálady (${src.slice(7).replace('(tvůj vkus)', '').trim()})` : '';
 const STYLES = ['stručné plynulé spojení obou skladeb', 'krátká poznámka k náladě a atmosféře další skladby', 'pozdrav odpovídající času dne a pak představení další skladby', 'lehce vtipná hláška a představení další skladby', 'jen jednou větou představ další skladbu, bez zbytečností'];
 
-async function djScript({ prev, next, when, kind = 'chat' }, c) {
+async function djScript(body, c) {
+  const { prev, next, when, kind = 'chat' } = body;
+  const mood = String(body.mood || '').replace(/[^\p{L}\p{N} ()-]/gu, '').slice(0, 40);
   const lang = c.lang === 'en' ? 'English' : 'česky';
   const base = `Jsi moderátor osobního internetového rádia pro jednoho posluchače. Mluv ${lang}, přirozeně a uvolněně jako skutečný rozhlasový DJ, ne jako robot. ` +
     'Žádná emoji, žádný markdown, žádné uvozovky ani hvězdičky – text se čte nahlas. Piš gramaticky správně, krátkými větami. ' +
@@ -409,7 +503,7 @@ async function djScript({ prev, next, when, kind = 'chat' }, c) {
     user = [`Teď je: ${when}.`, 'Dodané zprávy:', ...c.newsData.map((n, i) => `${i + 1}. ${n.title}${n.summary ? ` – ${n.summary}` : ''}`), track, 'Napiš jen text hlášky.'].join('\n');
   } else {
     system = base + 'Maximálně 1–3 krátké věty (do 40 slov). NIKDY nevymýšlej fakta o skladbách ani interpretech (rok vydání, ocenění, příběhy, žebříčky, členy kapely). Pokud si nejsi naprosto jistý, drž se obecné nálady, času dne a toho, jak skladba zapadá do poslechu.';
-    user = [`Teď je: ${when || 'neznámý čas'}.`, prev ? `Právě dohrála skladba: ${prev.title} – ${prev.artist}.` : '', track,
+    user = [`Teď je: ${when || 'neznámý čas'}.`, mood ? `Posluchač má zvolenou náladu hudby: ${mood}.` : '', prev ? `Právě dohrála skladba: ${prev.title} – ${prev.artist}.` : '', track,
       `Styl hlášky: ${STYLES[Math.random() * STYLES.length | 0]}.`,
       recentLines.length ? `Dřívější hlášky (nezačínej podobně): ${recentLines.slice(-4).join(' | ')}` : '', 'Napiš jen text hlášky.'].filter(Boolean).join('\n');
   }
@@ -615,7 +709,8 @@ async function handle(req, res) {
     if (!cfg().username) return send(res, 400, { error: 'setup' });
     const n = Math.min(Number(url.searchParams.get('n')) || 5, 15);
     const exclude = (url.searchParams.get('exclude') || '').split('\n').filter(Boolean);
-    const tracks = await nextTracks(n, exclude);
+    const mood = url.searchParams.get('mood') || '';
+    const tracks = await nextTracks(n, exclude, mood);
     if (!tracks.length) return send(res, 404, { error: 'Nepodařilo se získat žádné skladby. Má tvůj ListenBrainz účet dost poslechů?' });
     return send(res, 200, { tracks });
   }
