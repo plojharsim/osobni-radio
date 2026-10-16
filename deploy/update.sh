@@ -9,4 +9,4 @@ git pull --ff-only
 .venv/bin/pip install -q --upgrade edge-tts || true   # Microsoft občas mění protokol, nová verze to dožene
 systemctl restart radio
 sleep 1
-curl -fsS http://127.0.0.1:${PORT:-8787}/api/health >/dev/null && echo "OK: aplikace běží" || { echo "Služba neodpovídá, viz: journalctl -u radio -e"; exit 1; }
+curl -fsS http://127.0.0.1:$(grep -E "^PORT=" .env 2>/dev/null | cut -d= -f2 | grep . || echo 8787)/api/health >/dev/null && echo "OK: aplikace běží" || { echo "Služba neodpovídá, viz: journalctl -u radio -e"; exit 1; }

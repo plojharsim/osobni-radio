@@ -3,6 +3,7 @@ const audio = $('audio');
 const api = async (path, opts) => {
   const r = await fetch(path, opts && { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(opts) });
   const data = await r.json().catch(() => ({}));
+  if (r.status === 401) { location.reload(); throw new Error('Přihlášení vypršelo'); }
   if (!r.ok) throw Object.assign(new Error(data.error || r.statusText), { data });
   return data;
 };

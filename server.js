@@ -505,18 +505,73 @@ const readBody = (req) => new Promise((resolve) => {
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
 
+/* ---------- přihlášení heslem (jen heslo, bez jména; cookie relace) ---------- */
+const SALT_FILE = path.join(DATA, 'session.salt');
+let salt = '';
+try { salt = fs.readFileSync(SALT_FILE, 'utf8').trim(); } catch {}
+if (!salt) { salt = crypto.randomBytes(24).toString('hex'); try { fs.writeFileSync(SALT_FILE, salt, { mode: 0o600 }); } catch {} }
+const SESSION = crypto.createHash('sha256').update(`radio|${APP_PASSWORD}|${salt}`).digest('hex');   // změna hesla zneplatní všechny relace
+const safeEq = (a, b) => { const x = Buffer.from(String(a)), y = Buffer.from(String(b)); return x.length === y.length && crypto.timingSafeEqual(x, y); };
+const cookieOf = (req, name) => (req.headers.cookie || '').split(/;\s*/).map((c) => c.split('=')).find(([k]) => k === name)?.[1];
+const isHttps = (req) => req.headers['x-forwarded-proto'] === 'https' || /"scheme":"https"/.test(req.headers['cf-visitor'] || '');
+
 function authorized(req) {
   if (!APP_PASSWORD) return true;
-  const m = (req.headers.authorization || '').match(/^Basic (.+)$/);
-  if (!m) return false;
-  const pass = Buffer.from(m[1], 'base64').toString().split(':').slice(1).join(':');
-  return pass === APP_PASSWORD;
+  if (safeEq(cookieOf(req, 'radio_auth') || '', SESSION)) return true;
+  const m = (req.headers.authorization || '').match(/^Basic (.+)$/);   // pro skripty (curl -u x:heslo)
+  return !!m && safeEq(Buffer.from(m[1], 'base64').toString().split(':').slice(1).join(':'), APP_PASSWORD);
+}
+
+let failures = [];   // časy neúspěšných pokusů – po 5 za minutu se přihlašování na chvíli zamkne (ochrana proti hádání hesla)
+const LOGIN_PAGE = `<!doctype html><html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b0b0d"><title>Osobní rádio</title>
+<style>
+*{box-sizing:border-box;margin:0}html{background:#0b0b0d}
+body{min-height:100dvh;display:grid;place-items:center;padding:20px;color:#f4f4f6;font:17px/1.4 -apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+form{width:min(360px,100%);background:#131316;border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:28px}
+h1{font-size:18px;font-weight:650}h1 small{font-size:12px;font-weight:400;color:#adadb8;margin-left:6px}
+p{font-size:13px;color:#adadb8;margin-top:6px}
+input{display:block;width:100%;margin-top:20px;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.14);background:#0b0b0d;color:#f4f4f6;font:inherit;font-size:15px}
+input:focus{outline:2px solid #b794f6;outline-offset:-1px}
+button{width:100%;margin-top:14px;padding:12px;border-radius:12px;border:0;background:#f4f4f6;color:#0b0b0d;font:inherit;font-size:15px;font-weight:600;cursor:pointer}
+button:disabled{opacity:.6}#err{min-height:20px;margin-top:12px;font-size:13px;color:#fca5a5}
+</style></head><body>
+<form id="f"><h1>Osobní rádio<small>by plojharsim</small></h1><p>Zadej heslo pro vstup.</p>
+<input id="pw" type="password" placeholder="Heslo" autocomplete="current-password" autofocus required>
+<button id="b">Vstoupit</button><div id="err" role="alert"></div></form>
+<script>
+f.onsubmit=async e=>{e.preventDefault();b.disabled=true;err.textContent='';
+try{const r=await fetch('/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw.value})});
+if(r.ok)return location.reload();const j=await r.json().catch(()=>({}));err.textContent=j.error||'Nepodařilo se přihlásit';}
+catch{err.textContent='Server neodpovídá';}b.disabled=false;pw.select();};
+</script></body></html>`;
+
+async function handleLogin(req, res) {
+  const now = Date.now();
+  failures = failures.filter((t) => now - t < 60e3);
+  if (failures.length >= 5) return send(res, 429, { error: 'Příliš mnoho pokusů, zkus to za minutu.' });
+  const { password } = await readBody(req);
+  if (typeof password !== 'string' || !safeEq(password, APP_PASSWORD)) {
+    failures.push(now);
+    await new Promise((r) => setTimeout(r, 600));
+    return send(res, 401, { error: 'Špatné heslo' });
+  }
+  failures = [];
+  res.setHeader('Set-Cookie', `radio_auth=${SESSION}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${30 * 86400}${isHttps(req) ? '; Secure' : ''}`);
+  return send(res, 200, { ok: true });
 }
 
 async function handle(req, res) {
+  const route = new URL(req.url, 'http://x').pathname;
+  if (APP_PASSWORD && route === '/login' && req.method === 'POST') return handleLogin(req, res);
+  if (APP_PASSWORD && route === '/logout') {
+    res.writeHead(302, { 'Set-Cookie': 'radio_auth=; Path=/; HttpOnly; Max-Age=0', Location: '/' });
+    return res.end();
+  }
   if (!authorized(req)) {
-    res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="Personal Radio"' });
-    return res.end('Přihlášení vyžadováno');
+    if (route.startsWith('/api/')) return send(res, 401, { error: 'Přihlášení vyžadováno' });
+    res.writeHead(401, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+    return res.end(LOGIN_PAGE);
   }
   const url = new URL(req.url, 'http://x');
   const p = url.pathname;

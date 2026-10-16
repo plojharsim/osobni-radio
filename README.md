@@ -28,7 +28,7 @@ Pro moderátora vlož klíč z [openrouter.ai/keys](https://openrouter.ai/keys).
 **Ovládání:** mezerník = přehrát/pauza · → = další · L = líbí · D = nechci to slyšet · F = celá obrazovka · ↑/↓ = hlasitost · ` = debug
 
 ## Nastavení (`.env`)
-Zkopíruj `.env.example` na `.env`. Důležité: `APP_PASSWORD` (heslo k celé aplikaci – nastav ho, jakmile je dostupná z internetu), `PORT`, `HOST`, `OPENROUTER_API_KEY`, `LB_USER`, `LB_TOKEN`. Nastavení z aplikace se ukládá do `data/`.
+Zkopíruj `.env.example` na `.env`. Důležité: `APP_PASSWORD` (heslo k celé aplikaci, zadává se na přihlašovací stránce, jen heslo – nastav ho, jakmile je dostupná z internetu), `PORT`, `HOST`, `OPENROUTER_API_KEY`, `LB_USER`, `LB_TOKEN`. Nastavení z aplikace se ukládá do `data/`.
 
 ## Nasazení na Ubuntu server
 ```bash
@@ -36,6 +36,10 @@ git clone https://github.com/plojharsim/osobni-radio.git /opt/radio && cd /opt/r
 sudo ./deploy/install.sh     # Node, yt-dlp, ffmpeg, edge-tts, systemd služba, týdenní update yt-dlp
 ```
 Pak nastav `APP_PASSWORD` v `.env` a před aplikaci dej HTTPS reverzní proxy (příklad s Caddy vypíše instalační skript).
+
+### Cloudflare Tunnel
+- **`cloudflared` na stejném serveru:** v tunnelu nastav službu `http://localhost:8787`, víc není třeba.
+- **`cloudflared` na jiném stroji:** aplikace musí poslouchat v síti. V `.env` nastav `HOST=0.0.0.0`, restartuj (`sudo systemctl restart radio`), povol port jen pro ten stroj (`sudo ufw allow from <IP-cloudflared> to any port 8787 proto tcp`) a v tunnelu nastav službu `http://<IP-serveru>:8787`. Nikdy port 8787 neotvírej do internetu, jen pro tunnel.
 Alternativa: `docker compose up -d` (data v kontejnerovém svazku).
 
 ## Aktualizace
