@@ -437,6 +437,7 @@ async function openSettings() {
   const s = await api('/api/state');
   $('fUser').value = s.username; $('fToken').value = '';
   $('fToken').placeholder = s.hasToken ? 'uloženo (prázdné = beze změny)' : 'volitelné';
+  $('ver').textContent = `Osobní rádio, verze ${s.version}`;
   const d = s.dj; state.dj.cfg = d;
   $('djOn').checked = d.enabled; $('djKey').value = '';
   $('djKey').placeholder = d.hasKey ? 'uloženo (prázdné = beze změny)' : 'sk-or-…';

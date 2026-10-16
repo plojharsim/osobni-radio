@@ -12,6 +12,8 @@ const DATA = process.env.DATA_DIR || path.join(ROOT, 'data');
 fs.mkdirSync(DATA, { recursive: true });
 
 loadEnv(path.join(ROOT, '.env'));
+let VERSION = '?';
+try { VERSION = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version; } catch {}
 const PORT = Number(process.env.PORT || 8787);
 const HOST = process.env.HOST || '127.0.0.1';
 const YTDLP = process.env.YTDLP_BIN || 'yt-dlp';
@@ -584,7 +586,7 @@ async function handle(req, res) {
   if (p === '/api/state') {
     const c = cfg();
     const d = djCfg();
-    return send(res, 200, { configured: !!c.username, username: c.username, hasToken: !!c.token,
+    return send(res, 200, { version: VERSION, configured: !!c.username, username: c.username, hasToken: !!c.token,
       dj: { enabled: d.enabled, hasKey: !!d.key, lang: d.lang, voice: d.voice, freq: djFreq(d.freq), model: d.model, news: d.news, weather: d.weather, city: settings.get().location?.name || '' } });
   }
   if (p === '/api/settings' && req.method === 'POST') {
@@ -634,7 +636,7 @@ async function handle(req, res) {
     const c = djCfg(), loc = settings.get().location;
     const ago = (t) => (t ? Math.round((Date.now() - t) / 1000) : null);
     return send(res, 200, {
-      uptimeSec: Math.round(process.uptime()), node: process.version, ytdlp: await ytdlpVersion(), ttsBin: TTS_BIN,
+      version: VERSION, uptimeSec: Math.round(process.uptime()), node: process.version, ytdlp: await ytdlpVersion(), ttsBin: TTS_BIN,
       caches: { resolve: resolveCache.size, streamUrls: streamCache.size, loudness: loudCache.size, lyrics: lyricsCache.size, djJobs: djJobs.size, lb: cache.size },
       historySize: history.get().length, loved: feedback.get().love.length, hated: feedback.get().hate.length,
       ttsFiles: fs.readdirSync(TTS_DIR).length, ytdlpRunning: running, ytdlpWaiting: waiting.length,
@@ -720,7 +722,7 @@ async function handle(req, res) {
   // statické soubory
   let file = path.normalize(path.join(PUBLIC, p === '/' ? 'index.html' : p));
   if (!file.startsWith(PUBLIC) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); return res.end('Nenalezeno'); }
-  res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
+  res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache', 'CDN-Cache-Control': 'no-store', 'Cloudflare-CDN-Cache-Control': 'no-store' });   // ani CDN (Cloudflare) nesmí držet starou verzi
   fs.createReadStream(file).pipe(res);
 }
 

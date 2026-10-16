@@ -96,7 +96,7 @@
   function viewServer() {
     if (!server) return `<h5>Server</h5><div class="${serverErr ? 'bad' : 'dim'}">${esc(serverErr || 'načítám…')}</div>`;
     const s = server;
-    let h = '<h5>Proces</h5>' + row('Běží', `${Math.floor(s.uptimeSec / 60)} min`) + row('Node', s.node) + row('yt-dlp', s.ytdlp) + row('yt-dlp úlohy', `běží ${s.ytdlpRunning}, čeká ${s.ytdlpWaiting}`, s.ytdlpWaiting ? 'warn' : '') + row('TTS binárka', s.ttsBin);
+    let h = '<h5>Proces</h5>' + row('Verze serveru', s.version) + row('Běží', `${Math.floor(s.uptimeSec / 60)} min`) + row('Node', s.node) + row('yt-dlp', s.ytdlp) + row('yt-dlp úlohy', `běží ${s.ytdlpRunning}, čeká ${s.ytdlpWaiting}`, s.ytdlpWaiting ? 'warn' : '') + row('TTS binárka', s.ttsBin);
     h += '<h5>Cache</h5>' + Object.entries(s.caches).map(([k, v]) => row(k, v)).join('') + row('TTS soubory na disku', s.ttsFiles);
     h += '<h5>Data</h5>' + row('Historie přehrání', s.historySize) + row('Oblíbené ♥', s.loved) + row('Odmítnuté ✕', s.hated);
     return h + `<div class="dim" style="margin-top:10px">aktualizováno ${clock(serverAt)}</div>`;

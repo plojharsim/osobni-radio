@@ -168,9 +168,9 @@ body.idle { cursor: none; }
 @media (max-aspect-ratio: 1/1) {
   .fs header { padding: max(14px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left)); }
   .fs header .brand small { display: none; }
-  .fs main { display: flex; flex-direction: column; height: 100vh; height: 100dvh; min-height: 0; gap: 14px; overflow: hidden;
+  .fs main { display: flex; flex-direction: column; align-items: stretch; height: 100vh; height: 100dvh; min-height: 0; gap: 14px; overflow: hidden;
     padding: calc(max(14px, env(safe-area-inset-top)) + 52px) max(20px, env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); }
-  .fs .left { flex: none; }
+  .fs .left { flex: none; align-self: center; }
   .fs .cover { width: min(72vw, 34vh); min-width: 0; }
   .fs:has(.lyrics:not([hidden])) .cover { width: min(60vw, 24vh); }
   .fs .right { flex: 1; min-height: 0; max-height: none; justify-content: center; }
@@ -186,6 +186,29 @@ body.idle { cursor: none; }
   .fs .lyrics { flex: 1 1 0; min-height: 0; max-height: none; margin-top: 8px; }
   .fs .lyrics p { font-size: clamp(18px, 5vw, 30px); padding: 6px 0; }
   .fs .lyrics.plain p { font-size: clamp(15px, 4vw, 20px); }
+}
+
+/* dotyková zařízení ve fullscreenu: nahoře nechat místo pro stavový řádek (hodiny, baterie), který se po přejetí prstem zobrazí přes aplikaci */
+@media (pointer: coarse) and (max-aspect-ratio: 1/1) {
+  .fs header { padding-top: max(env(safe-area-inset-top), 44px); }
+  .fs main { padding-top: calc(max(env(safe-area-inset-top), 44px) + 56px); }
+}
+/* telefon na šířku ve fullscreenu: málo výšky → vše kompaktní, nic se nepřekrývá */
+@media (orientation: landscape) and (max-height: 560px) {
+  .fs header { padding: max(10px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) 0 max(24px, env(safe-area-inset-left)); }
+  .fs header .brand small { display: none; }
+  .fs main { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; gap: 5vw; padding: 56px max(28px, env(safe-area-inset-right)) 16px max(28px, env(safe-area-inset-left)); }
+  .fs .cover { width: min(100%, calc(100vh - 80px), calc(100dvh - 80px)); }
+  .fs .right { max-height: calc(100dvh - 72px); }
+  .fs .meta { margin: 0 0 8px; }
+  .fs h1 { font-size: clamp(20px, 3.4vw, 34px); }
+  .fs #artist { font-size: clamp(14px, 2vw, 20px); }
+  .fs .source, .fs .djinfo { display: none; }
+  .fs .controls { margin-top: 2px; }
+  .fs .play { width: 56px; height: 56px; } .fs .play svg { width: 24px; height: 24px; }
+  .fs .extras { margin-top: 4px; }
+  .fs .lyrics { flex: 1 1 0; min-height: 0; max-height: none; margin-top: 6px; }
+  .fs .lyrics p { font-size: clamp(16px, 2.6vw, 26px); padding: 5px 0; }
 }
 
 /* ---------- mobil ---------- */
